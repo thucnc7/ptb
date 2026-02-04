@@ -60,6 +60,7 @@ repomix-output.xml
 .serena/cache
 plans/**/*
 !plans/templates/*
+!plans/260204-1533-photobooth-canon-gdrive-qr/**
 screenshots/*
 docs/screenshots/*
 docs/research/*
