@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(xcopy:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(timeout 20 npm run dev:*)",
+      "Bash(npx electron:*)",
+      "Bash(node_modules/.bin/electron:*)",
+      "Bash(node_modules/electron/dist/electron.exe:*)",
+      "Bash(\"d:\\\\code\\\\ptb\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\":*)",
+      "Bash(echo:*)",
+      "Bash(unset:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build:*)"
+    ]
+  }
+}

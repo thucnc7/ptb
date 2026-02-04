@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Photobooth specific styles */
+@layer base {
+  html,
+  body {
+    @apply bg-gray-900 text-white antialiased;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /* Hide scrollbars for fullscreen kiosk mode */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Large countdown number for photo capture */
+  .countdown-number {
+    @apply text-[200px] font-bold text-white drop-shadow-2xl;
+    text-shadow: 0 0 60px rgba(255, 255, 255, 0.5);
+  }
+
+  /* Camera flash effect */
+  .flash-overlay {
+    @apply fixed inset-0 bg-white pointer-events-none;
+    animation: flash 0.3s ease-out;
+  }
+
+  @keyframes flash {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* QR Code container for better scanning */
+  .qr-container {
+    @apply bg-white p-8 rounded-2xl shadow-2xl;
+  }
+
+  /* Primary action button */
+  .btn-primary {
+    @apply px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-xl font-semibold transition-colors;
+  }
+
+  /* Success action button */
+  .btn-success {
+    @apply px-8 py-4 bg-green-600 hover:bg-green-700 rounded-xl text-xl font-semibold transition-colors;
+  }
+
+  /* Danger action button */
+  .btn-danger {
+    @apply px-8 py-4 bg-red-600 hover:bg-red-700 rounded-xl text-xl font-semibold transition-colors;
+  }
+}
+
+@layer utilities {
+  /* Full screen center utility */
+  .screen-center {
+    @apply flex flex-col items-center justify-center min-h-screen;
+  }
+}
