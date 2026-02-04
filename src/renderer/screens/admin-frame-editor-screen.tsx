@@ -21,9 +21,12 @@ import { FRAME_PRESETS } from '../../shared/types/frame-types'
 // Convert Windows path to file:// URL
 function pathToFileUrl(filePath: string): string {
   if (!filePath) return ''
-  // Replace backslashes with forward slashes and encode for URL
+  // Replace backslashes with forward slashes
   const normalizedPath = filePath.replace(/\\/g, '/')
-  return `file:///${normalizedPath}`
+  // Handle absolute paths (Unix/Mac starts with /, Windows starts with Drive letter)
+  return normalizedPath.startsWith('/')
+    ? `file://${normalizedPath}`
+    : `file:///${normalizedPath}`
 }
 
 export function AdminFrameEditorScreen(): JSX.Element {
@@ -513,8 +516,8 @@ export function AdminFrameEditorScreen(): JSX.Element {
                 <div
                   key={ph.id}
                   className={`absolute cursor-move transition-all ${selectedPlaceholder === ph.id
-                      ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-transparent'
-                      : 'hover:ring-2 hover:ring-blue-400'
+                    ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-transparent'
+                    : 'hover:ring-2 hover:ring-blue-400'
                     }`}
                   style={{
                     left: `${ph.x}%`,

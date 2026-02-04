@@ -5,11 +5,14 @@
 
 import type { Frame } from '../../shared/types/frame-types'
 
-// Convert Windows path to file:// URL
 function pathToFileUrl(filePath: string): string {
   if (!filePath) return ''
+  // Replace backslashes with forward slashes
   const normalizedPath = filePath.replace(/\\/g, '/')
-  return `file:///${normalizedPath}`
+  // Handle absolute paths (Unix/Mac starts with /, Windows starts with Drive letter)
+  return normalizedPath.startsWith('/')
+    ? `file://${normalizedPath}`
+    : `file:///${normalizedPath}`
 }
 
 interface FrameCardProps {
