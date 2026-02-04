@@ -51,7 +51,7 @@ Xây dựng ứng dụng Windows Desktop Photobooth sử dụng Electron với:
 |---|-------|--------|--------|---------|
 | 1 | [Project Setup](./phase-01-project-setup.md) | ✅ complete | 2h | Electron + React + TypeScript scaffold |
 | 2 | [Frame Management](./phase-02-frame-management.md) | ✅ complete | 3h | Admin UI để tạo/edit frames |
-| 3 | [Canon Camera Integration](./phase-03-canon-camera.md) | pending | 4h | EDSDK wrapper, live view, capture |
+| 3 | [Canon Camera Integration](./phase-03-canon-camera.md) | ✅ complete | 4h | EDSDK wrapper, live view, capture |
 | 4 | [Photo Capture Flow](./phase-04-photo-capture.md) | pending | 2h | Countdown, multi-capture sequence |
 | 5 | [Image Processing](./phase-05-image-processing.md) | pending | 2h | Composite photos into frames |
 | 6 | [Google Drive Upload](./phase-06-google-drive.md) | pending | 2h | OAuth, upload, share link |

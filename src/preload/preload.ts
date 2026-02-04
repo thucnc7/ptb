@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Frame } from '../shared/types/frame-types'
+import type {
+  CameraInfo,
+  CameraStatus,
+  CaptureResult
+} from '../shared/types/camera-types'
 
 // Expose protected methods to renderer process via context bridge
 
@@ -19,12 +24,16 @@ export interface ElectronAPI {
   }
 
   // Camera operations (Phase 3)
-  // camera: {
-  //   connect: () => Promise<void>
-  //   startLiveView: () => Promise<void>
-  //   capture: () => Promise<string>
-  //   disconnect: () => Promise<void>
-  // }
+  camera: {
+    getStatus: () => Promise<CameraStatus>
+    getCameras: () => Promise<CameraInfo[]>
+    connect: (cameraId?: string) => Promise<CameraInfo>
+    disconnect: () => Promise<void>
+    startLiveView: () => Promise<void>
+    stopLiveView: () => Promise<void>
+    capture: () => Promise<CaptureResult>
+    onLiveViewFrame: (callback: (imageData: string) => void) => () => void
+  }
 
   // Image processing (Phase 5)
   // image: {
@@ -50,6 +59,21 @@ const electronAPI: ElectronAPI = {
     delete: (id) => ipcRenderer.invoke('frames:delete', id),
     selectBackgroundImage: () => ipcRenderer.invoke('frames:select-background-image'),
     importBackgroundImage: (sourcePath) => ipcRenderer.invoke('frames:import-background-image', sourcePath)
+  },
+
+  camera: {
+    getStatus: () => ipcRenderer.invoke('camera:get-status'),
+    getCameras: () => ipcRenderer.invoke('camera:get-cameras'),
+    connect: (cameraId) => ipcRenderer.invoke('camera:connect', cameraId),
+    disconnect: () => ipcRenderer.invoke('camera:disconnect'),
+    startLiveView: () => ipcRenderer.invoke('camera:start-live-view'),
+    stopLiveView: () => ipcRenderer.invoke('camera:stop-live-view'),
+    capture: () => ipcRenderer.invoke('camera:capture'),
+    onLiveViewFrame: (callback) => {
+      const listener = (_event: unknown, imageData: string) => callback(imageData)
+      ipcRenderer.on('camera:live-view-frame', listener)
+      return () => ipcRenderer.removeListener('camera:live-view-frame', listener)
+    }
   }
 }
 

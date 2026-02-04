@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { HomeScreen } from './screens/home-screen'
 import { AdminFrameListScreen } from './screens/admin-frame-list-screen'
 import { AdminFrameEditorScreen } from './screens/admin-frame-editor-screen'
+import { AdminCameraTestScreen } from './screens/admin-camera-test-screen'
 
 export function App(): JSX.Element {
   return (
@@ -15,6 +16,9 @@ export function App(): JSX.Element {
           <Route path="/admin/frames" element={<AdminFrameListScreen />} />
           <Route path="/admin/frames/new" element={<AdminFrameEditorScreen />} />
           <Route path="/admin/frames/:id" element={<AdminFrameEditorScreen />} />
+
+          {/* Admin Camera Test (Phase 3) */}
+          <Route path="/admin/camera-test" element={<AdminCameraTestScreen />} />
 
           {/* User Routes (Phase 4) */}
           {/* <Route path="/user" element={<UserLayout />}>

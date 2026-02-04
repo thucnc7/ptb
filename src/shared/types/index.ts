@@ -4,3 +4,4 @@
 
 export * from './frame-types'
 export * from './session-types'
+export * from './camera-types'

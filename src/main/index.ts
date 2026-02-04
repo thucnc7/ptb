@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol } from 'electron'
 import { join } from 'path'
+import { readFile } from 'fs/promises'
 import { registerFrameIpcHandlers } from './ipc-handlers/frame-ipc-handlers'
+import { registerCameraIpcHandlers } from './ipc-handlers/camera-ipc-handlers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -58,8 +60,21 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   app.setAppUserModelId('com.photobooth.app')
 
+  // Register custom protocol for loading local images
+  protocol.registerFileProtocol('app', (request, callback) => {
+    const url = request.url.replace('app://', '')
+    const decodedPath = decodeURIComponent(url)
+    try {
+      return callback({ path: decodedPath })
+    } catch (error) {
+      console.error('Failed to load file:', error)
+      return callback({ error: -2 }) // FILE_NOT_FOUND
+    }
+  })
+
   // Register IPC handlers
   registerFrameIpcHandlers()
+  registerCameraIpcHandlers()
 
   createWindow()
 
