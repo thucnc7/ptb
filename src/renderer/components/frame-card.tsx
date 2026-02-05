@@ -9,8 +9,8 @@ function pathToFileUrl(filePath: string): string {
   if (!filePath) return ''
   const normalizedPath = filePath.replace(/\\/g, '/')
   return normalizedPath.startsWith('/')
-    ? `file://${normalizedPath}`
-    : `file:///${normalizedPath}`
+    ? `app://${normalizedPath}`
+    : `app:///${normalizedPath}`
 }
 
 interface FrameCardProps {
@@ -20,6 +20,11 @@ interface FrameCardProps {
 }
 
 export function FrameCard({ frame, onEdit, onDelete }: FrameCardProps): JSX.Element {
+  // Count photo placeholders/layers
+  const photoCount = frame.layers?.length > 0
+    ? frame.layers.filter(l => l.type === 'photo').length
+    : frame.placeholders.length
+
   return (
     <div className="group relative">
       {/* Gradient border effect */}

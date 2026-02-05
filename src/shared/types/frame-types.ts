@@ -27,7 +27,7 @@ export interface Layer {
 export interface Frame {
   id: string
   name: string
-  backgroundPath: string      // Local path to background image
+  backgroundPath: string      // DEPRECATED - kept for backward compatibility
   imageCaptures: number       // Number of photos to capture (1-6)
   placeholders: Placeholder[] // Where photos will be placed
   layers?: Layer[]            // New layer-based format (optional for backward compat)
