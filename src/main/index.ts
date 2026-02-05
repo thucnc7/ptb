@@ -1,8 +1,12 @@
-import { app, BrowserWindow, ipcMain, protocol } from 'electron'
+
+
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
-import { readFile } from 'fs/promises'
 import { registerFrameIpcHandlers } from './ipc-handlers/frame-ipc-handlers'
 import { registerCameraIpcHandlers } from './ipc-handlers/camera-ipc-handlers'
+import { getDccProcessMonitor } from './services/dcc-process-monitor-service'
+import { getDccFileWatcher } from './services/dcc-capture-file-watcher-service'
+import { getDccHttpClient } from './services/dcc-http-client-service'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -23,7 +27,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/preload.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Allow loading MJPEG stream from digiCamControl (localhost:5514)
+      webSecurity: false
     }
   })
 
@@ -60,21 +66,28 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   app.setAppUserModelId('com.photobooth.app')
 
-  // Register custom protocol for loading local images
-  protocol.registerFileProtocol('app', (request, callback) => {
-    const url = request.url.replace('app://', '')
-    const decodedPath = decodeURIComponent(url)
-    try {
-      return callback({ path: decodedPath })
-    } catch (error) {
-      console.error('Failed to load file:', error)
-      return callback({ error: -2 }) // FILE_NOT_FOUND
-    }
-  })
-
   // Register IPC handlers
   registerFrameIpcHandlers()
   registerCameraIpcHandlers()
+
+  // DCC services
+  console.log('Starting DCC process monitor...')
+  getDccProcessMonitor().start()
+  console.log('Starting DCC file watcher...')
+  getDccFileWatcher().start().catch(err => {
+    console.error('Failed to start file watcher:', err)
+  })
+  getDccProcessMonitor().on('state-changed', (newState, oldState) => {
+    console.log(`DCC state: ${oldState} -> ${newState}`)
+    mainWindow?.webContents.send('dcc:state-changed', { newState, oldState })
+  })
+  getDccProcessMonitor().on('recovery-failed', (reason) => {
+    console.error('DCC recovery failed:', reason)
+    mainWindow?.webContents.send('dcc:recovery-failed', { reason })
+  })
+  getDccFileWatcher().on('image-captured', ({ filePath }) => {
+    console.log('File watcher detected capture:', filePath)
+  })
 
   createWindow()
 
@@ -91,6 +104,13 @@ app.on('window-all-closed', () => {
   }
 })
 
+app.on('will-quit', async () => {
+  console.log('Shutting down DCC services...')
+  getDccProcessMonitor().stop()
+  await getDccFileWatcher().stop()
+  getDccHttpClient().destroy()
+})
+
 // IPC handler for app version
 ipcMain.handle('app:get-version', () => {
   return app.getVersion()
@@ -98,3 +118,4 @@ ipcMain.handle('app:get-version', () => {
 
 // Additional IPC handlers will be registered in later phases
 // Camera (Phase 3), Image Processing (Phase 5), Google Drive (Phase 6)
+

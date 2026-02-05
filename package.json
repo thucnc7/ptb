@@ -4,9 +4,9 @@
   "description": "Windows Desktop Photobooth với Canon camera, Google Drive upload, và QR code download",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "cross-env ELECTRON_RUN_AS_NODE= electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview",
+    "preview": "cross-env ELECTRON_RUN_AS_NODE= electron-vite preview",
     "package": "electron-builder",
     "package:win": "electron-builder --win",
     "lint": "eslint . --ext .ts,.tsx",
@@ -17,10 +17,14 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@electron/get": "^4.0.2",
+    "chokidar": "^5.0.0",
     "electron-store": "^8.1.0",
+    "lucide-react": "^0.563.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0"
+    "react-router-dom": "^6.22.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -29,10 +33,11 @@
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.17",
-    "electron": "^28.2.0",
+    "cross-env": "^10.1.0",
     "electron-builder": "^24.9.1",
     "electron-vite": "^2.0.0",
     "happy-dom": "^20.5.0",

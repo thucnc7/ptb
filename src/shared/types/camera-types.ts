@@ -19,9 +19,12 @@ export interface LiveViewFrame {
 }
 
 export interface CaptureResult {
-  filePath: string
-  timestamp: number
+  success: boolean
+  filePath?: string
+  previewUrl?: string
+  timestamp?: number
   thumbnailPath?: string
+  error?: string
 }
 
 export type CameraConnectionState =

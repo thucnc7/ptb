@@ -33,6 +33,20 @@ export interface ElectronAPI {
     stopLiveView: () => Promise<void>
     capture: () => Promise<CaptureResult>
     onLiveViewFrame: (callback: (imageData: string) => void) => () => void
+
+    // DCC specific
+    checkDccInstalled: () => Promise<boolean>
+    checkDccAvailable: () => Promise<boolean>
+    checkLiveViewAvailable: () => Promise<boolean>
+    autoSetupDcc: () => Promise<void>
+    launchDcc: () => Promise<void>
+    getLiveViewUrl: () => Promise<string>
+    onSetupProgress: (callback: (data: { percent: number; message: string }) => void) => () => void
+    // DCC Process Monitor (P1 optimization)
+    getDccState: () => Promise<{ state: string; isOnline: boolean; health: { api: boolean; liveView: boolean; timestamp: number } | null }>
+    dccManualRetry: () => Promise<void>
+    onDccStateChanged: (callback: (data: { newState: string; oldState: string }) => void) => () => void
+    onDccRecoveryFailed: (callback: (data: { reason: string }) => void) => () => void
   }
 
   // Image processing (Phase 5)
@@ -73,6 +87,31 @@ const electronAPI: ElectronAPI = {
       const listener = (_event: unknown, imageData: string) => callback(imageData)
       ipcRenderer.on('camera:live-view-frame', listener)
       return () => ipcRenderer.removeListener('camera:live-view-frame', listener)
+    },
+    // Phase 3: DCC Integration
+    checkDccInstalled: () => ipcRenderer.invoke('camera:check-dcc-installed'),
+    checkDccAvailable: () => ipcRenderer.invoke('camera:check-dcc-available'),
+    checkLiveViewAvailable: () => ipcRenderer.invoke('camera:check-live-view-available'),
+    autoSetupDcc: () => ipcRenderer.invoke('camera:auto-setup-dcc'),
+    launchDcc: () => ipcRenderer.invoke('camera:launch-dcc'),
+    getLiveViewUrl: () => ipcRenderer.invoke('camera:get-live-view-url'),
+    onSetupProgress: (callback) => {
+      const listener = (_event: unknown, data: { percent: number; message: string }) => callback(data)
+      ipcRenderer.on('camera:setup-progress', listener)
+      return () => ipcRenderer.removeListener('camera:setup-progress', listener)
+    },
+    // DCC Process Monitor (P1 optimization)
+    getDccState: () => ipcRenderer.invoke('camera:get-dcc-state'),
+    dccManualRetry: () => ipcRenderer.invoke('camera:dcc-manual-retry'),
+    onDccStateChanged: (callback) => {
+      const listener = (_event: unknown, data: { newState: string; oldState: string }) => callback(data)
+      ipcRenderer.on('dcc:state-changed', listener)
+      return () => ipcRenderer.removeListener('dcc:state-changed', listener)
+    },
+    onDccRecoveryFailed: (callback) => {
+      const listener = (_event: unknown, data: { reason: string }) => callback(data)
+      ipcRenderer.on('dcc:recovery-failed', listener)
+      return () => ipcRenderer.removeListener('dcc:recovery-failed', listener)
     }
   }
 }

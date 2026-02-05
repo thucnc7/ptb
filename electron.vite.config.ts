@@ -4,7 +4,9 @@ import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({
+      exclude: ['chokidar']  // Bundle chokidar since it's ESM-only
+    })],
     build: {
       outDir: 'out/main',
       rollupOptions: {

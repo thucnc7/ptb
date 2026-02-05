@@ -15,13 +15,15 @@ import {
 } from '../services/frame-service'
 import type { Frame, FramePreset, Layer } from '../../shared/types/frame-types'
 import { FRAME_PRESETS } from '../../shared/types/frame-types'
+import { DraggableLayer } from '../components/draggable-layer'
 
-// Convert local path to app:// protocol URL
+// Convert local path to file:// protocol URL for image loading
 function pathToFileUrl(filePath: string): string {
   if (!filePath) return ''
-  // Use custom app:// protocol instead of file:// to bypass Electron security restrictions
+  // Use file:// protocol which is allowed in CSP img-src directive
   const normalizedPath = filePath.replace(/\\/g, '/')
-  const url = `app://${normalizedPath}`
+  // Ensure proper file:// URL format: file:///C:/path/to/file
+  const url = normalizedPath.startsWith('/') ? `file://${normalizedPath}` : `file:///${normalizedPath}`
   console.log('🔧 pathToFileUrl:', filePath, '→', url)
   return url
 }
@@ -45,11 +47,7 @@ export function AdminFrameEditorScreen(): JSX.Element {
   const [frameHeight, setFrameHeight] = useState(1800)
   const [selectedPreset, setSelectedPreset] = useState<FramePreset>('4x6-portrait')
 
-  // Drag state
-  const [dragging, setDragging] = useState<string | null>(null)
-  const [resizing, setResizing] = useState<{ layerId: string; direction: string } | null>(null)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  // Note: Drag/resize state is now handled internally by DraggableLayer component
 
   // Zoom & Pan state
   const [zoom, setZoom] = useState(1)
@@ -318,123 +316,8 @@ export function AdminFrameEditorScreen(): JSX.Element {
     setZoom(prev => Math.max(prev - 0.25, 0.1))
   }
 
-  // Drag handlers
-  function handleMouseDown(e: React.MouseEvent, layerId: string) {
-    if (!canvasRef.current) return
-    e.stopPropagation()
-    
-    // If layer is already selected, start dragging
-    if (selectedLayer === layerId) {
-      const rect = canvasRef.current.getBoundingClientRect()
-      setDragging(layerId)
-      setDragStart({
-        x: (e.clientX - rect.left) / rect.width * 100,
-        y: (e.clientY - rect.top) / rect.height * 100
-      })
-    } else {
-      // If layer is not selected, just select it
-      setSelectedLayer(layerId)
-    }
-  }
-
-  // Resize handlers
-  function handleResizeStart(e: React.MouseEvent, layerId: string, direction: string) {
-    if (!canvasRef.current) return
-    e.stopPropagation()
-    e.preventDefault()
-    const layer = layers.find(l => l.id === layerId)
-    if (!layer) return
-    const rect = canvasRef.current.getBoundingClientRect()
-    setResizing({ layerId, direction })
-    setDragStart({
-      x: (e.clientX - rect.left) / rect.width * 100,
-      y: (e.clientY - rect.top) / rect.height * 100
-    })
-    setResizeStart({ x: layer.x, y: layer.y, width: layer.width, height: layer.height })
-    setSelectedLayer(layerId)
-  }
-
-  function handleMouseMove(e: React.MouseEvent) {
-    if (!canvasRef.current) return
-    const rect = canvasRef.current.getBoundingClientRect()
-    const currentX = (e.clientX - rect.left) / rect.width * 100
-    const currentY = (e.clientY - rect.top) / rect.height * 100
-
-    // Handle resize
-    if (resizing && resizeStart) {
-      const deltaX = currentX - dragStart.x
-      const deltaY = currentY - dragStart.y
-      const layer = layers.find(l => l.id === resizing.layerId)
-      if (!layer) return
-
-      let updates: Partial<Layer> = {}
-      const minSize = 5
-
-      switch (resizing.direction) {
-        case 'se':
-          updates = {
-            width: Math.max(minSize, Math.min(100 - resizeStart.x, resizeStart.width + deltaX)),
-            height: Math.max(minSize, Math.min(100 - resizeStart.y, resizeStart.height + deltaY))
-          }
-          break
-        case 'sw':
-          const newWidthSw = Math.max(minSize, resizeStart.width - deltaX)
-          const newXSw = Math.max(0, resizeStart.x + resizeStart.width - newWidthSw)
-          updates = {
-            x: newXSw,
-            width: newWidthSw,
-            height: Math.max(minSize, Math.min(100 - resizeStart.y, resizeStart.height + deltaY))
-          }
-          break
-        case 'ne':
-          const newHeightNe = Math.max(minSize, resizeStart.height - deltaY)
-          const newYNe = Math.max(0, resizeStart.y + resizeStart.height - newHeightNe)
-          updates = {
-            y: newYNe,
-            width: Math.max(minSize, Math.min(100 - resizeStart.x, resizeStart.width + deltaX)),
-            height: newHeightNe
-          }
-          break
-        case 'nw':
-          const newWidthNw = Math.max(minSize, resizeStart.width - deltaX)
-          const newXNw = Math.max(0, resizeStart.x + resizeStart.width - newWidthNw)
-          const newHeightNw = Math.max(minSize, resizeStart.height - deltaY)
-          const newYNw = Math.max(0, resizeStart.y + resizeStart.height - newHeightNw)
-          updates = {
-            x: newXNw,
-            y: newYNw,
-            width: newWidthNw,
-            height: newHeightNw
-          }
-          break
-      }
-      handleLayerChange(resizing.layerId, {
-        x: Math.round(updates.x ?? layer.x),
-        y: Math.round(updates.y ?? layer.y),
-        width: Math.round(updates.width ?? layer.width),
-        height: Math.round(updates.height ?? layer.height)
-      })
-      return
-    }
-
-    // Handle drag
-    if (dragging) {
-      const layer = layers.find(l => l.id === dragging)
-      if (!layer) return
-      const deltaX = currentX - dragStart.x
-      const deltaY = currentY - dragStart.y
-      const newX = Math.max(0, Math.min(100 - layer.width, layer.x + deltaX))
-      const newY = Math.max(0, Math.min(100 - layer.height, layer.y + deltaY))
-      handleLayerChange(dragging, { x: Math.round(newX), y: Math.round(newY) })
-      setDragStart({ x: currentX, y: currentY })
-    }
-  }
-
-  function handleMouseUp() {
-    setDragging(null)
-    setResizing(null)
-    setResizeStart(null)
-  }
+  // Note: handleMouseDown, handleResizeStart, handleMouseMove, handleMouseUp
+  // are now handled internally by DraggableLayer component
 
   async function handleSave() {
     // Validation
@@ -671,102 +554,40 @@ export function AdminFrameEditorScreen(): JSX.Element {
           >
             <div
               ref={canvasRef}
-              className="relative bg-gray-800 shadow-2xl overflow-visible cursor-grab active:cursor-grabbing"
+              className="relative bg-gray-800 shadow-2xl overflow-visible"
               style={{
                 width: frameWidth > frameHeight ? '500px' : '400px',
                 aspectRatio: `${frameWidth}/${frameHeight}`
               }}
               onMouseDown={handleCanvasBackgroundMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
             >
-            {layers.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-sm">
-                Click "Add Image" or "Photo Placeholder" to start
-              </div>
-            )}
-
-            {/* Render layers in order (bottom to top) */}
-            {layers.map((layer, zIndex) => {
-              if (layerVisibility[layer.id] === false) return null
-
-              const isImage = layer.type === 'image'
-              const photoIndex = layers.filter(l => l.type === 'photo' && layers.indexOf(l) <= zIndex).length - 1
-              const isSelected = selectedLayer === layer.id
-
-              return (
-                <div
-                  key={layer.id}
-                  className={`absolute transition-all ${
-                    isSelected
-                      ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-transparent cursor-move'
-                      : 'hover:ring-2 hover:ring-blue-400 cursor-pointer'
-                  }`}
-                  style={{
-                    left: `${layer.x}%`,
-                    top: `${layer.y}%`,
-                    width: `${layer.width}%`,
-                    height: `${layer.height}%`,
-                    transform: `rotate(${layer.rotation}deg)`,
-                    zIndex,
-                    backgroundColor: isImage ? 'transparent' : ['#ef4444', '#22c55e', '#06b6d4', '#a855f7', '#f97316', '#ec4899'][photoIndex % 6] + '80',
-                    pointerEvents: isSelected ? 'auto' : 'none'
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation()
-                    handleMouseDown(e, layer.id)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {isImage && layer.imagePath ? (
-                    <img
-                      src={pathToFileUrl(layer.imagePath)}
-                      alt="Layer"
-                      className="w-full h-full object-contain pointer-events-none"
-                      draggable={false}
-                      onError={(e) => {
-                        console.error('Failed to load image:', layer.imagePath)
-                        if (layer.imagePath) {
-                          console.error('Converted URL:', pathToFileUrl(layer.imagePath))
-                        }
-                        console.error('Error event:', e)
-                      }}
-                      onLoad={() => {
-                        console.log('✅ Image loaded successfully:', layer.imagePath)
-                      }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-white text-4xl font-bold drop-shadow-lg">{photoIndex + 1}</span>
-                    </div>
-                  )}
-
-                  {/* Resize handles when selected */}
-                  {selectedLayer === layer.id && (
-                    <>
-                      <div
-                        className="absolute -top-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full cursor-nw-resize"
-                        onMouseDown={(e) => handleResizeStart(e, layer.id, 'nw')}
-                      />
-                      <div
-                        className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full cursor-ne-resize"
-                        onMouseDown={(e) => handleResizeStart(e, layer.id, 'ne')}
-                      />
-                      <div
-                        className="absolute -bottom-1 -left-1 w-3 h-3 bg-yellow-400 rounded-full cursor-sw-resize"
-                        onMouseDown={(e) => handleResizeStart(e, layer.id, 'sw')}
-                      />
-                      <div
-                        className="absolute -bottom-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full cursor-se-resize"
-                        onMouseDown={(e) => handleResizeStart(e, layer.id, 'se')}
-                      />
-                    </>
-                  )}
+              {layers.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-sm">
+                  Click "Add Image" or "Photo Placeholder" to start
                 </div>
-              )
-            })}
-          </div>
+              )}
+
+              {/* Render layers using DraggableLayer component */}
+              {layers.map((layer, zIndex) => {
+                if (layerVisibility[layer.id] === false) return null
+
+                const photoIndex = layers.filter(l => l.type === 'photo' && layers.indexOf(l) <= zIndex).length - 1
+
+                return (
+                  <DraggableLayer
+                    key={layer.id}
+                    layer={layer}
+                    zIndex={zIndex}
+                    photoIndex={photoIndex}
+                    isSelected={selectedLayer === layer.id}
+                    onSelect={() => setSelectedLayer(layer.id)}
+                    onChange={(updates) => handleLayerChange(layer.id, updates)}
+                    canvasRef={canvasRef}
+                    pathToFileUrl={pathToFileUrl}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
 

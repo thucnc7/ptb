@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { HomeScreen } from './screens/home-screen'
+import { AdminSettingsScreen } from './screens/admin-settings-screen'
 import { AdminFrameListScreen } from './screens/admin-frame-list-screen'
 import { AdminFrameEditorScreen } from './screens/admin-frame-editor-screen'
 import { AdminCameraTestScreen } from './screens/admin-camera-test-screen'
+import { UserFrameSelectionScreen } from './screens/user-frame-selection-screen'
+import { UserCaptureSessionScreen } from './screens/user-capture-session-screen'
 
 export function App(): JSX.Element {
   return (
@@ -11,6 +14,9 @@ export function App(): JSX.Element {
         <Routes>
           {/* Home / Mode Selection */}
           <Route path="/" element={<HomeScreen />} />
+
+          {/* Admin Settings Hub */}
+          <Route path="/admin/settings" element={<AdminSettingsScreen />} />
 
           {/* Admin Routes (Phase 2) */}
           <Route path="/admin/frames" element={<AdminFrameListScreen />} />
@@ -21,14 +27,12 @@ export function App(): JSX.Element {
           <Route path="/admin/camera-test" element={<AdminCameraTestScreen />} />
 
           {/* User Routes (Phase 4) */}
-          {/* <Route path="/user" element={<UserLayout />}>
-            <Route path="select-frame" element={<UserFrameSelectionScreen />} />
-            <Route path="capture" element={<UserCaptureScreen />} />
-            <Route path="preview" element={<UserPreviewScreen />} />
-            <Route path="processing" element={<UserProcessingScreen />} />
-            <Route path="upload" element={<UserUploadScreen />} />
-            <Route path="qr" element={<UserQrDisplayScreen />} />
-          </Route> */}
+          <Route path="/user/select-frame" element={<UserFrameSelectionScreen />} />
+          <Route path="/user/capture/:frameId" element={<UserCaptureSessionScreen />} />
+
+          {/* Placeholder routes for Phase 5-7 */}
+          {/* <Route path="/user/processing" element={<UserProcessingScreen />} /> */}
+          {/* <Route path="/user/qr" element={<UserQrDisplayScreen />} /> */}
         </Routes>
       </div>
     </BrowserRouter>

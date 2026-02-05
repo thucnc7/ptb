@@ -1,0 +1,139 @@
+import { useEffect, useState } from 'react'
+
+interface CountdownProps {
+  value: number
+}
+
+export function CountdownOverlayFullscreen({ value }: CountdownProps) {
+  if (value <= 0) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+      <div
+        key={value} // Re-animate on value change
+        className="text-[25rem] font-black text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-countdown-pop font-mono leading-none"
+        style={{
+          textShadow: '0 0 80px rgba(255,255,255,0.5), 0 0 120px rgba(168,85,247,0.4)'
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
+
+interface FlashProps {
+  active: boolean
+}
+
+export function CaptureFlashEffect({ active }: FlashProps) {
+  const [phase, setPhase] = useState<'idle' | 'flash' | 'shutter'>('idle')
+
+  useEffect(() => {
+    if (active) {
+      // Phase 1: Bright flash
+      setPhase('flash')
+
+      // Phase 2: Shutter effect
+      const shutterTimer = setTimeout(() => {
+        setPhase('shutter')
+      }, 100)
+
+      // Phase 3: Reset
+      const resetTimer = setTimeout(() => {
+        setPhase('idle')
+      }, 500)
+
+      return () => {
+        clearTimeout(shutterTimer)
+        clearTimeout(resetTimer)
+      }
+    }
+  }, [active])
+
+  if (phase === 'idle') return null
+
+  return (
+    <>
+      {/* Bright flash overlay */}
+      {phase === 'flash' && (
+        <div
+          className="fixed inset-0 z-[60] pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at center, white 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.7) 100%)',
+            animation: 'flash-burst 150ms ease-out forwards'
+          }}
+        />
+      )}
+
+      {/* Camera shutter effect - two black bars */}
+      {phase === 'shutter' && (
+        <>
+          {/* Top shutter blade */}
+          <div
+            className="fixed top-0 left-0 right-0 z-[61] bg-black pointer-events-none"
+            style={{
+              height: '50vh',
+              animation: 'shutter-close-top 200ms ease-in-out forwards'
+            }}
+          />
+          {/* Bottom shutter blade */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[61] bg-black pointer-events-none"
+            style={{
+              height: '50vh',
+              animation: 'shutter-close-bottom 200ms ease-in-out forwards'
+            }}
+          />
+          {/* Center flash line */}
+          <div
+            className="fixed left-0 right-0 z-[62] pointer-events-none"
+            style={{
+              top: '50%',
+              height: '4px',
+              background: 'linear-gradient(90deg, transparent, white, transparent)',
+              animation: 'shutter-line 200ms ease-in-out forwards',
+              boxShadow: '0 0 20px white, 0 0 40px white'
+            }}
+          />
+        </>
+      )}
+
+      {/* Inline keyframes */}
+      <style>{`
+        @keyframes flash-burst {
+          0% { opacity: 0; }
+          30% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+
+        @keyframes shutter-close-top {
+          0% { transform: translateY(-100%); }
+          40% { transform: translateY(0); }
+          60% { transform: translateY(0); }
+          100% { transform: translateY(-100%); }
+        }
+
+        @keyframes shutter-close-bottom {
+          0% { transform: translateY(100%); }
+          40% { transform: translateY(0); }
+          60% { transform: translateY(0); }
+          100% { transform: translateY(100%); }
+        }
+
+        @keyframes shutter-line {
+          0% { opacity: 0; transform: scaleX(0); }
+          40% { opacity: 1; transform: scaleX(1); }
+          60% { opacity: 1; transform: scaleX(1); }
+          100% { opacity: 0; transform: scaleX(0); }
+        }
+
+        @keyframes countdown-pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+    </>
+  )
+}

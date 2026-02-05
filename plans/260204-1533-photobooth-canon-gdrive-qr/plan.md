@@ -51,8 +51,8 @@ Xây dựng ứng dụng Windows Desktop Photobooth sử dụng Electron với:
 |---|-------|--------|--------|---------|
 | 1 | [Project Setup](./phase-01-project-setup.md) | ✅ complete | 2h | Electron + React + TypeScript scaffold |
 | 2 | [Frame Management](./phase-02-frame-management.md) | ✅ complete | 3h | Admin UI để tạo/edit frames |
-| 3 | [Canon Camera Integration](./phase-03-canon-camera.md) | ✅ complete | 4h | EDSDK wrapper, live view, capture |
-| 4 | [Photo Capture Flow](./phase-04-photo-capture.md) | pending | 2h | Countdown, multi-capture sequence |
+| 3 | [Canon Camera Integration](./phase-03-canon-camera.md) | ✅ complete | 4h | digiCamControl integration, live view, capture |
+| 4 | [Photo Capture Flow](./phase-04-photo-capture.md) | ✅ complete | 2h | Countdown, multi-capture sequence, retake |
 | 5 | [Image Processing](./phase-05-image-processing.md) | pending | 2h | Composite photos into frames |
 | 6 | [Google Drive Upload](./phase-06-google-drive.md) | pending | 2h | OAuth, upload, share link |
 | 7 | [QR Code Display](./phase-07-qr-display.md) | pending | 1h | Generate & display QR |
@@ -161,7 +161,7 @@ Xây dựng ứng dụng Windows Desktop Photobooth sử dụng Electron với:
 
 #### Action Items
 - [ ] Phase 2: Add Admin preview mode để xem user UI
-- [ ] Phase 4: Update UI - simplified (counter, timer only), add per-photo retake
+- [x] Phase 4: Update UI - simplified (counter, timer only), add per-photo retake ✅
 - [ ] Phase 6: Add offline queue system
 - [ ] Phase 7: Remove auto-reset, add manual Done button only
 

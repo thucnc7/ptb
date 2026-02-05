@@ -1,11 +1,48 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { cameraService } from '../services/camera-service'
+import { getCameraService } from '../services/camera-service'
+import { getDccProcessMonitor } from '../services/dcc-process-monitor-service'
 
 export function registerCameraIpcHandlers(): void {
+  // --- digiCamControl Handlers ---
+
+  ipcMain.handle('camera:check-dcc-installed', async () => {
+    return await getCameraService().isDccInstalled()
+  })
+
+  ipcMain.handle('camera:check-dcc-available', async () => {
+    return await getCameraService().checkDccAvailable()
+  })
+
+  ipcMain.handle('camera:auto-setup-dcc', async (event) => {
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (mainWindow) {
+      getCameraService().setMainWindow(mainWindow)
+    }
+    await getCameraService().autoSetupDcc()
+  })
+
+  ipcMain.handle('camera:launch-dcc', async (event) => {
+    const mainWindow = BrowserWindow.fromWebContents(event.sender)
+    if (mainWindow) {
+      getCameraService().setMainWindow(mainWindow)
+    }
+    await getCameraService().launchDcc()
+  })
+
+  ipcMain.handle('camera:get-live-view-url', async () => {
+    return getCameraService().getLiveViewStreamUrl()
+  })
+
+  ipcMain.handle('camera:check-live-view-available', async () => {
+    return await getCameraService().checkLiveViewAvailable()
+  })
+
+  // --- Standard Camera Handlers ---
+
   // Get camera status
   ipcMain.handle('camera:get-status', async () => {
     try {
-      return cameraService.getStatus()
+      return getCameraService().getStatus()
     } catch (error) {
       throw new Error(`Failed to get camera status: ${error}`)
     }
@@ -14,7 +51,7 @@ export function registerCameraIpcHandlers(): void {
   // Get available cameras
   ipcMain.handle('camera:get-cameras', async () => {
     try {
-      return await cameraService.getCameras()
+      return await getCameraService().getCameras()
     } catch (error) {
       throw new Error(`Failed to get cameras: ${error}`)
     }
@@ -23,7 +60,7 @@ export function registerCameraIpcHandlers(): void {
   // Connect to camera
   ipcMain.handle('camera:connect', async (_event, cameraId?: string) => {
     try {
-      return await cameraService.connect(cameraId)
+      return await getCameraService().connect(cameraId)
     } catch (error) {
       throw new Error(`Failed to connect to camera: ${error}`)
     }
@@ -32,7 +69,7 @@ export function registerCameraIpcHandlers(): void {
   // Disconnect camera
   ipcMain.handle('camera:disconnect', async () => {
     try {
-      await cameraService.disconnect()
+      await getCameraService().disconnect()
     } catch (error) {
       throw new Error(`Failed to disconnect camera: ${error}`)
     }
@@ -46,7 +83,9 @@ export function registerCameraIpcHandlers(): void {
         throw new Error('Main window not found')
       }
 
-      await cameraService.startLiveView((imageData) => {
+      getCameraService().setMainWindow(mainWindow)
+
+      await getCameraService().startLiveView((imageData: string) => {
         mainWindow.webContents.send('camera:live-view-frame', imageData)
       })
     } catch (error) {
@@ -57,7 +96,7 @@ export function registerCameraIpcHandlers(): void {
   // Stop live view
   ipcMain.handle('camera:stop-live-view', async () => {
     try {
-      await cameraService.stopLiveView()
+      await getCameraService().stopLiveView()
     } catch (error) {
       throw new Error(`Failed to stop live view: ${error}`)
     }
@@ -66,9 +105,25 @@ export function registerCameraIpcHandlers(): void {
   // Capture photo
   ipcMain.handle('camera:capture', async () => {
     try {
-      return await cameraService.capture()
+      return await getCameraService().capture()
     } catch (error) {
       throw new Error(`Failed to capture photo: ${error}`)
     }
+  })
+
+  // --- DCC Process Monitor Handlers ---
+
+  // Get DCC monitor state (instant, cached)
+  ipcMain.handle('camera:get-dcc-state', () => {
+    return {
+      state: getDccProcessMonitor().getState(),
+      isOnline: getDccProcessMonitor().isOnline(),
+      health: getDccProcessMonitor().getHealthStatus()
+    }
+  })
+
+  // Manual retry after circuit breaker opened
+  ipcMain.handle('camera:dcc-manual-retry', () => {
+    getDccProcessMonitor().manualRetry()
   })
 }
