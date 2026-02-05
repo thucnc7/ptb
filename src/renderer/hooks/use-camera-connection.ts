@@ -22,6 +22,35 @@ export function useCameraConnection() {
     loadStatus()
   }, [])
 
+  // Poll status every 5 seconds when connected to detect disconnects
+  useEffect(() => {
+    if (!status.connected) return
+
+    const interval = setInterval(() => {
+      loadStatus()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [status.connected])
+
+  // Listen to DCC state changes and auto-update when DCC goes offline
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.camera.onDccStateChanged(({ newState }) => {
+      if (newState === 'offline' || newState === 'failed') {
+        console.log('DCC went offline, updating camera status')
+        setStatus({
+          connected: false,
+          liveViewActive: false,
+          cameraInfo: null,
+          error: 'DigiCamControl disconnected'
+        })
+        setConnectionState('disconnected')
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
   const loadStatus = async () => {
     try {
       const currentStatus = await window.electronAPI.camera.getStatus()

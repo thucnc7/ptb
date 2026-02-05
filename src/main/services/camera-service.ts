@@ -16,10 +16,23 @@ export class CameraService {
   // Performance: Track last captured file
   private lastCapturedFile: string | null = null
 
+  // Cache camera info to avoid repeated API calls
+  private cachedCameraInfo: CameraInfo | null = null
+
   private dccInstaller: DccInstallerService
 
   constructor() {
     this.dccInstaller = new DccInstallerService()
+  }
+
+  /**
+   * Reset all connection state (called on connect/disconnect/offline)
+   */
+  private resetState(): void {
+    this.liveViewActive = false
+    this.liveViewCallback = null
+    this.lastCapturedFile = null
+    this.cachedCameraInfo = null
   }
 
   setMainWindow(window: BrowserWindow) {
@@ -57,14 +70,13 @@ export class CameraService {
   }
 
   async getStatus(): Promise<CameraStatus> {
+    // Return internal state - let frontend handle display
+    // Don't auto-reset live view based on health check alone
+    // (health check may be stale, and DccLiveView component has its own retry logic)
     return {
       connected: this.connected,
       liveViewActive: this.liveViewActive,
-      cameraInfo: this.connected ? {
-        id: 'dcc-camera',
-        model: 'Canon Camera (via DCC)',
-        serialNumber: 'unknown'
-      } : null,
+      cameraInfo: this.cachedCameraInfo,
       error: null
     }
   }
@@ -88,21 +100,27 @@ export class CameraService {
     }
   }
 
+  /**
+   * Get real camera info from DCC via session.json
+   * No longer triggers capture - uses safe session query
+   */
   private async getCameraInfo(): Promise<CameraInfo | null> {
     try {
-      // DCC doesn't have a perfect JSON API for this, we assume if we can talk to it,
-      // there is a camera. We can try to get session data.
-      // Often simple query 'camera' might suffice or we check session
-      // For now returning a generic connected camera if DCC is responsive
-      const response = await this.sendCommand('cmd=Capture') // Just testing connection primarily
-      // Ideally we would parse "c.DoCommand(Cmd)" output if documented well.
-      // Let's use a dummy info if connected for Phase 3 MVP
-      return {
-        id: 'dcc-camera',
-        model: 'Canon Camera (via DCC)',
-        serialNumber: 'unknown'
+      // Use HTTP client to get real camera data from session.json
+      const dccInfo = await getDccHttpClient().getCameraInfo()
+
+      if (!dccInfo || !dccInfo.connected) {
+        console.log('No camera detected by DCC')
+        return null
       }
-    } catch {
+
+      return {
+        id: dccInfo.serial || 'dcc-camera',
+        model: dccInfo.model,
+        serialNumber: dccInfo.serial
+      }
+    } catch (error) {
+      console.error('Failed to get camera info:', error)
       return null
     }
   }
@@ -111,37 +129,53 @@ export class CameraService {
     console.log('Connecting to DigiCamControl...')
 
     // OPTIMIZED: Use cached monitor state instead of blocking health check
-    // Monitor handles recovery in background, no blocking here
     if (!getDccProcessMonitor().isOnline()) {
       throw new Error('DigiCamControl not available. Please ensure it is running or wait for auto-recovery.')
     }
 
-    this.connected = true
-    return {
-      id: 'dcc-camera',
-      model: 'Canon Camera (via DCC)',
-      serialNumber: '000000'
+    // Reset all state on fresh connect (fixes stale live view issue)
+    this.resetState()
+
+    // Query actual camera info from DCC
+    const info = await this.getCameraInfo()
+    if (!info) {
+      throw new Error('No camera detected. Please connect a camera to your computer.')
     }
+
+    // Cache the camera info and mark as connected
+    this.cachedCameraInfo = info
+    this.connected = true
+
+    console.log(`Connected to camera: ${info.model} (${info.serialNumber})`)
+    return info
   }
 
-  // OLD Connect removed
-
   async disconnect(): Promise<void> {
+    // Stop live view if active (ignore errors during disconnect)
     if (this.liveViewActive) {
-      await this.stopLiveView()
+      try {
+        await this.stopLiveView()
+      } catch {
+        // Ignore errors during cleanup
+      }
     }
+
+    // Reset all state
+    this.resetState()
     this.connected = false
+    console.log('Disconnected from camera')
   }
 
   getLiveViewStreamUrl(): string {
-    return 'http://127.0.0.1:5514/live'
+    // Static JPEG endpoint - component will poll for live view
+    // MJPEG on port 5514 doesn't work reliably
+    return 'http://127.0.0.1:5513/liveview.jpg'
   }
 
-  // Check if live view port is available (used by IPC handler)
+  // Check if live view is available (used by IPC handler)
   async checkLiveViewAvailable(): Promise<boolean> {
-    // OPTIMIZED: Use monitor's cached health status
-    const health = getDccProcessMonitor().getHealthStatus()
-    return health?.liveView ?? false
+    // Check if API is online (live view is served on same port 5513)
+    return getDccProcessMonitor().isOnline()
   }
 
   async startLiveView(callback: (imageData: string) => void): Promise<void> {

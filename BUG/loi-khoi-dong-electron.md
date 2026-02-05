@@ -31,4 +31,27 @@ Qua quá trình systematic debugging, đã xác định được các nguyên nh
 4. **Environment Fix**: Cấu hình lại `package.json` để đảm bảo không chạy ở chế độ Node (`ELECTRON_RUN_AS_NODE=`).
 
 ## 4. Trạng thái hiện tại
-Lỗi vẫn chưa được khắc phục hoàn toàn trên môi trường local hiện tại. Có dấu hiệu cho thấy môi trường cài đặt `electron` cục bộ hoặc cache hệ thống đang gặp vấn đề khiến việc load module built-in bị chặn (shadowing).
+**✅ ĐÃ KHẮC PHỤC (2026-02-05)**
+
+## 5. Nguyên nhân thực sự đã tìm ra
+
+Biến môi trường `ELECTRON_RUN_AS_NODE=1` được set bởi **Claude Code** (vì Claude Code chính nó là một Electron app). Khi biến này được set, Electron sẽ chạy như Node.js runtime thay vì Electron runtime, dẫn đến `require('electron')` trả về path string thay vì API object.
+
+## 6. Giải pháp đã áp dụng
+
+1. **Cài đặt electron**: Thêm `electron@40.1.0` vào devDependencies (trước đó thiếu)
+2. **Wrapper script**: Tạo `scripts/electron-vite-without-run-as-node.js` để clear biến `ELECTRON_RUN_AS_NODE` trước khi chạy electron-vite
+3. **Update package.json**: Sử dụng wrapper script trong npm scripts
+
+```json
+"scripts": {
+  "dev": "node scripts/electron-vite-without-run-as-node.js dev",
+  "preview": "node scripts/electron-vite-without-run-as-node.js preview"
+}
+```
+
+## 7. Verification
+- App khởi động thành công
+- `process.type` = `'browser'` (đúng)
+- `require('electron')` trả về API object với `app`, `BrowserWindow`, etc.
+- Tất cả DCC services (Process Monitor, File Watcher, HTTP Client) hoạt động bình thường

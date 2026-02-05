@@ -7,6 +7,7 @@ import { registerCameraIpcHandlers } from './ipc-handlers/camera-ipc-handlers'
 import { getDccProcessMonitor } from './services/dcc-process-monitor-service'
 import { getDccFileWatcher } from './services/dcc-capture-file-watcher-service'
 import { getDccHttpClient } from './services/dcc-http-client-service'
+import { getCameraService } from './services/camera-service'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -80,6 +81,14 @@ app.whenReady().then(() => {
   getDccProcessMonitor().on('state-changed', (newState, oldState) => {
     console.log(`DCC state: ${oldState} -> ${newState}`)
     mainWindow?.webContents.send('dcc:state-changed', { newState, oldState })
+
+    // Force cleanup camera state when DCC goes offline
+    if (newState === 'offline' || newState === 'failed') {
+      console.log('DCC offline - disconnecting camera service')
+      getCameraService().disconnect().catch(() => {
+        // Ignore errors during cleanup
+      })
+    }
   })
   getDccProcessMonitor().on('recovery-failed', (reason) => {
     console.error('DCC recovery failed:', reason)

@@ -39,7 +39,14 @@
       "Bash(python3:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm update:*)",
-      "Bash(npx electron-vite:*)"
+      "Bash(npx electron-vite:*)",
+      "Bash(ls:*)",
+      "Bash(set \"ELECTRON_RUN_AS_NODE=\")",
+      "Bash(node_moduleselectrondistelectron.exe --version)",
+      "Bash(ELECTRON_RUN_AS_NODE='' ./node_modules/electron/dist/electron.exe:*)",
+      "Bash(cmd.exe /c \"echo %ELECTRON_RUN_AS_NODE%\")",
+      "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\(''ELECTRON_RUN_AS_NODE'', ''User''\\)\")",
+      "Bash(powershell:*)"
     ]
   }
 }

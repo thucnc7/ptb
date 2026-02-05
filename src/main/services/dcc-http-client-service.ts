@@ -5,6 +5,32 @@
 
 import * as http from 'http'
 
+/**
+ * DCC Session data from session.json endpoint
+ */
+export interface DccSessionData {
+  Name: string
+  Folder: string
+  Counter: number
+  Files?: Array<{
+    FileName: string
+    ShortName: string
+    FileNameTemplates?: Array<{
+      Name: string
+      Value: string
+    }>
+  }>
+}
+
+/**
+ * Parsed camera info from DCC session
+ */
+export interface DccCameraInfo {
+  model: string
+  serial: string
+  connected: boolean
+}
+
 export interface DccHttpClientConfig {
   host: string
   apiPort: number
@@ -77,7 +103,69 @@ export class DccHttpClientService {
   }
 
   /**
-   * Check live view port health (port 5514)
+   * Fetch session.json from DCC (contains camera info)
+   * @returns Parsed JSON object or null on error
+   */
+  async fetchSessionJson(): Promise<DccSessionData | null> {
+    try {
+      const url = `http://${this.config.host}:${this.config.apiPort}/session.json`
+      const response = await this.request(url, 5000)
+      return JSON.parse(response) as DccSessionData
+    } catch (error) {
+      console.error('Failed to fetch session.json:', error)
+      return null
+    }
+  }
+
+  /**
+   * Get camera info from DCC session data
+   * Parses [Camera Name] field which contains "Model (Serial)"
+   */
+  async getCameraInfo(): Promise<DccCameraInfo | null> {
+    const session = await this.fetchSessionJson()
+    if (!session) {
+      return null
+    }
+
+    // Find camera name in session files' FileNameTemplates
+    // Format: "Canon EOS RP (401029001101)"
+    let cameraName = ''
+    if (session.Files && session.Files.length > 0) {
+      const templates = session.Files[0].FileNameTemplates
+      if (templates) {
+        const cameraTemplate = templates.find(t => t.Name === '[Camera Name]')
+        if (cameraTemplate) {
+          cameraName = cameraTemplate.Value
+        }
+      }
+    }
+
+    if (!cameraName) {
+      // DCC is running but no camera detected
+      return { model: 'No camera', serial: 'unknown', connected: false }
+    }
+
+    // Parse "Model (Serial)" format
+    const match = cameraName.match(/^(.+?)\s*\((\d+)\)$/)
+    if (match) {
+      return {
+        model: match[1].trim(),
+        serial: match[2],
+        connected: true
+      }
+    }
+
+    // Fallback if format is different
+    return {
+      model: cameraName,
+      serial: 'unknown',
+      connected: true
+    }
+  }
+
+  /**
+   * Check live view MJPEG stream availability (port 5514)
+   * Note: Stream only works when Live View window is open in DCC
    */
   async checkLiveViewHealth(): Promise<boolean> {
     return this.checkPort(this.config.liveViewPort, '/live')
