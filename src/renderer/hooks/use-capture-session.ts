@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { CaptureSession, SessionStatus, CapturedPhoto } from '../../shared/types/session-types'
+import { CaptureSession, SessionState, CapturedPhoto } from '../../shared/types/session-types'
 import { Frame } from '../../shared/types/frame-types'
 import { v4 as uuidv4 } from 'uuid'
 
 interface UseCaptureSessionReturn {
     session: CaptureSession | null
     currentFrame: Frame | null
-    status: SessionStatus
+    status: SessionState
     timeLeft: number | null
     currentShotIndex: number
     error: string | null
@@ -43,11 +43,20 @@ export function useCaptureSession(): UseCaptureSessionReturn {
 
             setCurrentFrame(frame)
             setSession({
-                id: uuidv4(),
-                startTime: Date.now(),
+                id: `session-${Date.now()}`,
+                state: 'idle',
                 frameId,
-                photos: [],
-                status: 'idle'
+                totalPhotos: frame.imageCaptures,
+                currentPhotoIndex: 0,
+                capturedPhotos: [],
+                countdownValue: 5,
+                countdownConfig: null,
+                autoSequenceEnabled: false,
+                compositePath: null,
+                driveFileId: null,
+                downloadLink: null,
+                qrCodeDataUrl: null,
+                error: null
             })
             setCurrentShotIndex(0)
         } catch (e: any) {
@@ -69,7 +78,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
             setTimeLeft(null)
 
             // 2. Capture
-            setSession(prev => prev ? { ...prev, status: 'capturing' } : null)
+            setSession(prev => prev ? { ...prev, state: 'capturing' } : null)
 
             // Stop live view briefly implies visual feedback
             // const liveViewUrl = await window.electronAPI.camera.getLiveViewUrl()
@@ -84,13 +93,13 @@ export function useCaptureSession(): UseCaptureSessionReturn {
                         id: uuidv4(),
                         path: result.filePath!,
                         previewUrl: result.previewUrl!,
-                        timestamp: result.timestamp || Date.now(),
-                        frameIndex: targetIndex
+                        capturedAt: new Date(result.timestamp || Date.now()) || Date.now(),
+                        index: targetIndex
                     }
 
                     // Replace existing or add new
-                    const existingPhotos = [...prev.photos]
-                    const existingIdx = existingPhotos.findIndex(p => p.frameIndex === targetIndex)
+                    const existingPhotos = [...prev.capturedPhotos]
+                    const existingIdx = existingPhotos.findIndex(p => p.index === targetIndex)
 
                     if (existingIdx >= 0) {
                         existingPhotos[existingIdx] = newPhoto
@@ -98,7 +107,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
                         existingPhotos.push(newPhoto)
                     }
 
-                    return { ...prev, photos: existingPhotos }
+                    return { ...prev, capturedPhotos: existingPhotos }
                 })
 
                 return true
@@ -107,7 +116,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
             }
         } catch (e: any) {
             setError(e.message)
-            setSession(prev => prev ? { ...prev, status: 'idle' } : null)
+            setSession(prev => prev ? { ...prev, state: 'idle' } : null)
             return false
         }
     }, [session, currentFrame])
@@ -121,7 +130,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
             // Based on tasks, 'frame.imageCaptures' or similar. 
             // The Type definition for Frame is in another file, let's assume placeholders count matches photo count for now.
             // Wait, let me check Frame type definition
-            const hasPhoto = session.photos.some(p => p.frameIndex === nextIndex)
+            const hasPhoto = session.capturedPhotos.some(p => p.index === nextIndex)
             if (!hasPhoto) break
             nextIndex++
         }
@@ -158,11 +167,11 @@ export function useCaptureSession(): UseCaptureSessionReturn {
                 // Check if now full
                 setSession(prev => {
                     if (!prev) return null;
-                    const count = prev.photos.length
+                    const count = prev.capturedPhotos.length
                     if (count >= totalPhotos) {
                         return { ...prev, status: 'reviewing' }
                     }
-                    return { ...prev, status: 'idle' } // Ready for next
+                    return { ...prev, state: 'idle' } // Ready for next
                 })
             } else {
                 setSession(prev => prev ? { ...prev, status: 'reviewing' } : null)
@@ -191,7 +200,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
     }, [cleanup])
 
     // Derive status
-    const status = session?.status || 'idle'
+    const status = session?.state || 'idle'
 
     return {
         session,

@@ -4,11 +4,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { X, Sparkles, Camera, Heart, Star } from 'lucide-react'
 import type { Frame } from '../../shared/types/frame-types'
+import type { CountdownConfig } from '../../shared/types/countdown-types'
 import { useCaptureSessionStateMachine } from '../hooks/use-capture-session-state-machine'
 import { useCameraConnection } from '../hooks/use-camera-connection'
+import { useAudioFeedback } from '../hooks/use-audio-feedback'
 import { DccLiveView } from '../components/dcc-live-view'
 import { CountdownOverlayFullscreen, CaptureFlashEffect } from '../components/countdown-overlay-fullscreen'
 import { CapturedPhotosPreviewGrid } from '../components/captured-photos-preview-grid'
@@ -16,6 +18,8 @@ import { CapturedPhotosPreviewGrid } from '../components/captured-photos-preview
 export function UserCaptureSessionScreen() {
   const { frameId } = useParams<{ frameId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const countdownConfig = location.state?.countdownConfig as CountdownConfig | undefined
 
   const [frame, setFrame] = useState<Frame | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,6 +29,8 @@ export function UserCaptureSessionScreen() {
   const {
     session,
     selectFrame,
+    configureCountdown,
+    enableAutoSequence,
     startCountdown,
     onCaptureComplete,
     onCaptureError,
@@ -37,6 +43,12 @@ export function UserCaptureSessionScreen() {
   } = useCaptureSessionStateMachine()
 
   const { connect, capture, status: cameraStatus } = useCameraConnection()
+  const {
+    playCountdownTick,
+    playShutterSound,
+    playSuccessSound,
+    playStartSound
+  } = useAudioFeedback()
 
   // Load frame and initialize
   useEffect(() => {
@@ -57,6 +69,12 @@ export function UserCaptureSessionScreen() {
 
         setFrame(loadedFrame)
         selectFrame(loadedFrame)
+
+        // Configure countdown from selection screen
+        if (countdownConfig) {
+          configureCountdown(countdownConfig)
+          enableAutoSequence() // Enable auto-sequence mode
+        }
 
         const available = await window.electronAPI.camera.checkDccAvailable()
         setDccAvailable(available)
@@ -90,10 +108,27 @@ export function UserCaptureSessionScreen() {
     }
   }, [session.state, dccAvailable])
 
+  // Play countdown tick sound
+  useEffect(() => {
+    if (session.state === 'countdown' && session.countdownValue > 0) {
+      playCountdownTick(session.countdownValue)
+    }
+  }, [session.countdownValue, session.state, playCountdownTick])
+
+  // Play success sound after capture
+  useEffect(() => {
+    if (session.state === 'photo-preview') {
+      playSuccessSound()
+    }
+  }, [session.state, playSuccessSound])
+
   const performCapture = async () => {
     try {
       setShowFlash(true)
       setTimeout(() => setShowFlash(false), 300)
+
+      // Play shutter sound
+      playShutterSound()
 
       const result = await capture()
 
@@ -108,8 +143,9 @@ export function UserCaptureSessionScreen() {
   }
 
   const handleStartCapture = useCallback(() => {
+    playStartSound()
     startCountdown()
-  }, [startCountdown])
+  }, [startCountdown, playStartSound])
 
   const handleConfirm = useCallback(() => {
     confirmPhotos()
@@ -256,6 +292,45 @@ export function UserCaptureSessionScreen() {
     )
   }
 
+  // Inter-photo pause state (brief pause between auto-captures)
+  if (session.state === 'inter-photo') {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          fontFamily: 'var(--font-body)',
+          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+        }}
+      >
+        <div className="text-center">
+          <div style={{ animation: 'pulse-scale 1s ease-in-out infinite' }}>
+            <Sparkles className="w-24 h-24 text-pink-400 mx-auto mb-6" />
+          </div>
+          <h2
+            className="text-4xl font-bold mb-4"
+            style={{
+              fontFamily: 'var(--font-heading)',
+              background: 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            Chuẩn bị tạo dáng tiếp nhé!
+          </h2>
+          <p className="text-purple-300 text-xl">
+            Ảnh tiếp theo sẽ chụp ngay...
+          </p>
+        </div>
+        <style>{`
+          @keyframes pulse-scale {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
   // Main capture view
   return (
     <div
@@ -343,7 +418,9 @@ export function UserCaptureSessionScreen() {
             className="text-white/90 mt-4 text-lg"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
-            Nhấn để chụp
+            {session.autoSequenceEnabled && shotProgress.current === 1
+              ? 'Bắt đầu chụp liên tục'
+              : 'Nhấn để chụp'}
           </p>
         </div>
       )}

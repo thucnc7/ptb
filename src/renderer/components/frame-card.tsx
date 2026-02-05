@@ -21,7 +21,7 @@ interface FrameCardProps {
 
 export function FrameCard({ frame, onEdit, onDelete }: FrameCardProps): JSX.Element {
   // Count photo placeholders/layers
-  const photoCount = frame.layers?.length > 0
+  const photoCount = frame.layers?.length && frame.layers.length > 0
     ? frame.layers.filter(l => l.type === 'photo').length
     : frame.placeholders.length
 

@@ -7,16 +7,71 @@ interface CountdownProps {
 export function CountdownOverlayFullscreen({ value }: CountdownProps) {
   if (value <= 0) return null
 
+  // Color progression: 3+ = purple, 2 = orange, 1 = pink/red
+  const getColor = (val: number) => {
+    if (val >= 3) return { primary: '#8B5CF6', secondary: '#A78BFA', glow: 'rgba(139, 92, 246, 0.6)' }
+    if (val === 2) return { primary: '#F97316', secondary: '#FB923C', glow: 'rgba(249, 115, 22, 0.6)' }
+    return { primary: '#EC4899', secondary: '#F472B6', glow: 'rgba(236, 72, 153, 0.6)' }
+  }
+
+  const colors = getColor(value)
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+      {/* Pulsing background glow */}
+      <div
+        key={`bg-${value}`}
+        className="absolute inset-0 flex items-center justify-center"
+        style={{
+          animation: 'countdown-glow-pulse 0.8s ease-out'
+        }}
+      >
+        <div
+          className="w-[600px] h-[600px] rounded-full blur-3xl"
+          style={{
+            background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`
+          }}
+        />
+      </div>
+
+      {/* Main countdown number */}
       <div
         key={value} // Re-animate on value change
-        className="text-[25rem] font-black text-white drop-shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-countdown-pop font-mono leading-none"
+        className="relative text-[25rem] font-black drop-shadow-[0_0_50px_rgba(0,0,0,0.8)] font-mono leading-none"
         style={{
-          textShadow: '0 0 80px rgba(255,255,255,0.5), 0 0 120px rgba(168,85,247,0.4)'
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: `0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}`,
+          animation: 'countdown-pop-scale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
         }}
       >
         {value}
+      </div>
+
+      {/* Ripple rings */}
+      <div
+        key={`ring-${value}`}
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      >
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: '300px',
+            height: '300px',
+            border: `4px solid ${colors.primary}`,
+            animation: 'countdown-ripple 0.8s ease-out'
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: '300px',
+            height: '300px',
+            border: `4px solid ${colors.secondary}`,
+            animation: 'countdown-ripple 0.8s ease-out 0.15s'
+          }}
+        />
       </div>
     </div>
   )
@@ -128,10 +183,21 @@ export function CaptureFlashEffect({ active }: FlashProps) {
           100% { opacity: 0; transform: scaleX(0); }
         }
 
-        @keyframes countdown-pop {
-          0% { transform: scale(0.5); opacity: 0; }
-          50% { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
+        @keyframes countdown-pop-scale {
+          0% { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+          60% { transform: scale(1.15) rotate(2deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        @keyframes countdown-glow-pulse {
+          0% { opacity: 0; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+          100% { opacity: 0.6; transform: scale(1); }
+        }
+
+        @keyframes countdown-ripple {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          100% { transform: scale(2.5); opacity: 0; }
         }
       `}</style>
     </>

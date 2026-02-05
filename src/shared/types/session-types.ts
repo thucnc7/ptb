@@ -1,16 +1,39 @@
 import { Frame } from './frame-types'
+import { CountdownConfig } from './countdown-types'
+
+// Session Storage Types (Phase 1)
+export interface SessionInfo {
+  id: string
+  folderPath: string
+  createdAt: Date
+  photoCount: number
+}
+
+export interface SavePhotoResult {
+  success: boolean
+  path: string
+  index: number
+}
+
+export interface CompositeResult {
+  success: boolean
+  path: string
+  dataUrl?: string
+}
 
 export type SessionState =
   | 'selecting-frame'
   | 'idle'           // Ready to start
-  | 'countdown'      // 3-2-1
+  | 'countdown'      // Configurable countdown
   | 'capturing'      // Saving photo
   | 'photo-preview'  // Brief preview of just captured photo
+  | 'inter-photo'    // Breathing room between captures (2s)
   | 'review-all'     // Session complete, review all photos
   | 'processing'     // Compositing
   | 'uploading'      // Uploading to drive
   | 'qr-display'     // Show QR code
   | 'error'
+  | 'paused'         // Session paused by user
 
 export interface CapturedPhoto {
   id: string
@@ -28,6 +51,8 @@ export interface CaptureSession {
   currentPhotoIndex: number
   capturedPhotos: CapturedPhoto[]
   countdownValue: number
+  countdownConfig: CountdownConfig | null  // User-selected countdown
+  autoSequenceEnabled: boolean             // Auto-capture mode
   compositePath: string | null
   driveFileId: string | null
   downloadLink: string | null
@@ -37,12 +62,19 @@ export interface CaptureSession {
 
 export type SessionAction =
   | { type: 'SELECT_FRAME'; frame: Frame }
+  | { type: 'CONFIGURE_COUNTDOWN'; config: CountdownConfig }
+  | { type: 'ENABLE_AUTO_SEQUENCE' }
   | { type: 'START_COUNTDOWN' }
   | { type: 'COUNTDOWN_TICK'; value: number }
   | { type: 'CAPTURE_START' }
   | { type: 'CAPTURE_COMPLETE'; photo: CapturedPhoto }
   | { type: 'CAPTURE_ERROR'; error: string }
   | { type: 'PHOTO_PREVIEW_DONE' }
+  | { type: 'INTER_PHOTO_START' }
+  | { type: 'INTER_PHOTO_DONE' }
+  | { type: 'PAUSE_SESSION' }
+  | { type: 'RESUME_SESSION' }
+  | { type: 'CANCEL_SESSION' }
   | { type: 'RETAKE_PHOTO'; index: number }
   | { type: 'CONFIRM_PHOTOS' }
   | { type: 'PROCESSING_COMPLETE'; compositePath: string }
@@ -57,7 +89,9 @@ export const createInitialSession = (): CaptureSession => ({
   totalPhotos: 0,
   currentPhotoIndex: 0,
   capturedPhotos: [],
-  countdownValue: 3,
+  countdownValue: 5,
+  countdownConfig: null,
+  autoSequenceEnabled: false,
   compositePath: null,
   driveFileId: null,
   downloadLink: null,
@@ -77,13 +111,28 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
         currentPhotoIndex: 0
       }
 
-    case 'START_COUNTDOWN':
+    case 'CONFIGURE_COUNTDOWN':
+      return {
+        ...state,
+        countdownConfig: action.config,
+        countdownValue: action.config.duration
+      }
+
+    case 'ENABLE_AUTO_SEQUENCE':
+      return {
+        ...state,
+        autoSequenceEnabled: true
+      }
+
+    case 'START_COUNTDOWN': {
+      const duration = state.countdownConfig?.duration || 5
       return {
         ...state,
         state: 'countdown',
-        countdownValue: 3,
+        countdownValue: duration,
         error: null
       }
+    }
 
     case 'COUNTDOWN_TICK':
       return {
@@ -107,7 +156,7 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
         newPhotos.push(action.photo)
       }
 
-      // Sort by index to be safe
+      // Sort by index
       newPhotos.sort((a, b) => a.index - b.index)
 
       return {
@@ -125,17 +174,7 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
       }
 
     case 'PHOTO_PREVIEW_DONE': {
-      // If we have all photos, go to review all
-      // Unless we are retaking a specific index, then go to review all
-      // Actually, if we are in sequence, we check if next index < total
-
-      const nextIndex = state.currentPhotoIndex + 1
       const isComplete = state.capturedPhotos.length >= state.totalPhotos
-
-      // If we just did a retake (how do we know? logic in machine or hook)
-      // The hook handles 'isRetakingRef'.
-      // But purely state wise:
-      // If we have all photos, we review.
 
       if (isComplete) {
         return {
@@ -144,20 +183,60 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
         }
       }
 
-      // Else proceed to next
+      // Auto-sequence enabled: go to inter-photo pause
+      if (state.autoSequenceEnabled) {
+        return {
+          ...state,
+          state: 'inter-photo'
+        }
+      }
+
+      // Manual mode: return to idle, wait for user to press capture again
+      const nextIndex = state.currentPhotoIndex + 1
       return {
         ...state,
-        state: 'idle', // Ready for next countdown
+        state: 'idle',
         currentPhotoIndex: nextIndex
       }
     }
+
+    case 'INTER_PHOTO_START':
+      return {
+        ...state,
+        state: 'inter-photo'
+      }
+
+    case 'INTER_PHOTO_DONE': {
+      const nextIndex = state.currentPhotoIndex + 1
+      return {
+        ...state,
+        state: 'countdown', // Auto-start next countdown
+        currentPhotoIndex: nextIndex,
+        countdownValue: state.countdownConfig?.duration || 5
+      }
+    }
+
+    case 'PAUSE_SESSION':
+      return {
+        ...state,
+        state: 'paused'
+      }
+
+    case 'RESUME_SESSION':
+      return {
+        ...state,
+        state: 'idle'
+      }
+
+    case 'CANCEL_SESSION':
+      return createInitialSession()
 
     case 'RETAKE_PHOTO':
       return {
         ...state,
         state: 'idle',
         currentPhotoIndex: action.index,
-        // We keep the photos, just reset state to idle to allow Start Countdown
+        autoSequenceEnabled: false // Disable auto-sequence for retake
       }
 
     case 'CONFIRM_PHOTOS':

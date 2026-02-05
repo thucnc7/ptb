@@ -24,7 +24,7 @@ export function UserFrameSelectionScreen() {
   }
 
   const handleSelectFrame = (frameId: string) => {
-    navigate(`/user/capture/${frameId}`)
+    navigate(`/user/countdown/${frameId}`)
   }
 
   return (

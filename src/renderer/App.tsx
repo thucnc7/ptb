@@ -5,7 +5,10 @@ import { AdminFrameListScreen } from './screens/admin-frame-list-screen'
 import { AdminFrameEditorScreen } from './screens/admin-frame-editor-screen'
 import { AdminCameraTestScreen } from './screens/admin-camera-test-screen'
 import { UserFrameSelectionScreen } from './screens/user-frame-selection-screen'
+import { UserCountdownSelectionScreen } from './screens/user-countdown-selection-screen'
 import { UserCaptureSessionScreen } from './screens/user-capture-session-screen'
+import { UserProcessingScreen } from './screens/user-processing-screen'
+import { UserResultScreen } from './screens/user-result-screen'
 
 export function App(): JSX.Element {
   return (
@@ -28,11 +31,10 @@ export function App(): JSX.Element {
 
           {/* User Routes (Phase 4) */}
           <Route path="/user/select-frame" element={<UserFrameSelectionScreen />} />
+          <Route path="/user/countdown/:frameId" element={<UserCountdownSelectionScreen />} />
           <Route path="/user/capture/:frameId" element={<UserCaptureSessionScreen />} />
-
-          {/* Placeholder routes for Phase 5-7 */}
-          {/* <Route path="/user/processing" element={<UserProcessingScreen />} /> */}
-          {/* <Route path="/user/qr" element={<UserQrDisplayScreen />} /> */}
+          <Route path="/user/processing" element={<UserProcessingScreen />} />
+          <Route path="/user/result" element={<UserResultScreen />} />
         </Routes>
       </div>
     </BrowserRouter>

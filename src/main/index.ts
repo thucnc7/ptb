@@ -4,6 +4,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerFrameIpcHandlers } from './ipc-handlers/frame-ipc-handlers'
 import { registerCameraIpcHandlers } from './ipc-handlers/camera-ipc-handlers'
+import { registerSessionIpcHandlers } from './ipc-handlers/session-ipc-handlers'
 import { getDccProcessMonitor } from './services/dcc-process-monitor-service'
 import { getDccFileWatcher } from './services/dcc-capture-file-watcher-service'
 import { getDccHttpClient } from './services/dcc-http-client-service'
@@ -70,6 +71,7 @@ app.whenReady().then(() => {
   // Register IPC handlers
   registerFrameIpcHandlers()
   registerCameraIpcHandlers()
+  registerSessionIpcHandlers()
 
   // DCC services
   console.log('Starting DCC process monitor...')

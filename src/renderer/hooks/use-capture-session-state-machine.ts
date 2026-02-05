@@ -1,61 +1,106 @@
 /**
  * Capture session state machine hook
- * Orchestrates the full capture flow: frame selection → countdown → capture → preview → confirm
+ * Orchestrates the full capture flow with date-based timers and auto-sequence mode
  */
 
 import { useReducer, useCallback, useRef, useEffect } from 'react'
 import type { Frame } from '../../shared/types/frame-types'
 import type { CapturedPhoto } from '../../shared/types/session-types'
+import type { CountdownConfig } from '../../shared/types/countdown-types'
 import { createInitialSession, sessionReducer } from '../../shared/types/session-types'
 
-const COUNTDOWN_SECONDS = 3
 const PHOTO_PREVIEW_DURATION_MS = 1500
+const INTER_PHOTO_PAUSE_MS = 2000
+const CAPTURE_TIMEOUT_MS = 30000
 
 export function useCaptureSessionStateMachine() {
   const [session, dispatch] = useReducer(sessionReducer, null, createInitialSession)
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const interPhotoTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isRetakingRef = useRef(false)
+  const countdownTargetTimeRef = useRef<number>(0)
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current)
-      }
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current)
-      }
+      clearAllTimers()
     }
   }, [])
+
+  const clearAllTimers = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current)
+      countdownIntervalRef.current = null
+    }
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current)
+      previewTimeoutRef.current = null
+    }
+    if (interPhotoTimeoutRef.current) {
+      clearTimeout(interPhotoTimeoutRef.current)
+      interPhotoTimeoutRef.current = null
+    }
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current)
+      captureTimeoutRef.current = null
+    }
+  }
 
   // Select a frame and start the session
   const selectFrame = useCallback((frame: Frame) => {
     dispatch({ type: 'SELECT_FRAME', frame })
   }, [])
 
-  // Start countdown (3-2-1)
+  // Configure countdown (called from countdown selection screen)
+  const configureCountdown = useCallback((config: CountdownConfig) => {
+    dispatch({ type: 'CONFIGURE_COUNTDOWN', config })
+  }, [])
+
+  // Enable auto-sequence mode
+  const enableAutoSequence = useCallback(() => {
+    dispatch({ type: 'ENABLE_AUTO_SEQUENCE' })
+  }, [])
+
+  // Start countdown with date-based timer (no drift)
   const startCountdown = useCallback(() => {
     dispatch({ type: 'START_COUNTDOWN' })
 
-    let count = COUNTDOWN_SECONDS
+    const duration = session.countdownConfig?.duration || 5
+    countdownTargetTimeRef.current = Date.now() + (duration * 1000)
+
+    // Check every 100ms for accuracy, update UI only on second changes
+    let lastValue = duration
     countdownIntervalRef.current = setInterval(() => {
-      count--
-      if (count > 0) {
-        dispatch({ type: 'COUNTDOWN_TICK', value: count })
-      } else {
-        // Countdown finished, start capture
+      const remaining = Math.ceil((countdownTargetTimeRef.current - Date.now()) / 1000)
+
+      if (remaining > 0 && remaining !== lastValue) {
+        lastValue = remaining
+        dispatch({ type: 'COUNTDOWN_TICK', value: remaining })
+      } else if (remaining <= 0) {
         if (countdownIntervalRef.current) {
           clearInterval(countdownIntervalRef.current)
           countdownIntervalRef.current = null
         }
         dispatch({ type: 'CAPTURE_START' })
+
+        // Set capture timeout (30s)
+        captureTimeoutRef.current = setTimeout(() => {
+          dispatch({ type: 'CAPTURE_ERROR', error: 'Capture timeout - camera not responding' })
+        }, CAPTURE_TIMEOUT_MS)
       }
-    }, 1000)
-  }, [])
+    }, 100)
+  }, [session.countdownConfig])
 
   // Handle successful capture
   const onCaptureComplete = useCallback((filePath: string, previewUrl?: string) => {
+    // Clear capture timeout
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current)
+      captureTimeoutRef.current = null
+    }
+
     const photo: CapturedPhoto = {
       id: `photo-${Date.now()}`,
       index: session.currentPhotoIndex,
@@ -70,17 +115,51 @@ export function useCaptureSessionStateMachine() {
     previewTimeoutRef.current = setTimeout(() => {
       dispatch({ type: 'PHOTO_PREVIEW_DONE' })
       isRetakingRef.current = false
+
+      // If auto-sequence and more photos needed, start inter-photo pause
+      if (session.autoSequenceEnabled && session.capturedPhotos.length + 1 < session.totalPhotos) {
+        interPhotoTimeoutRef.current = setTimeout(() => {
+          dispatch({ type: 'INTER_PHOTO_DONE' })
+          // Auto-start next countdown after inter-photo
+          setTimeout(() => {
+            startCountdown()
+          }, 50)
+        }, INTER_PHOTO_PAUSE_MS)
+      }
     }, PHOTO_PREVIEW_DURATION_MS)
-  }, [session.currentPhotoIndex])
+  }, [session.currentPhotoIndex, session.autoSequenceEnabled, session.capturedPhotos.length, session.totalPhotos, startCountdown])
 
   // Handle capture error
   const onCaptureError = useCallback((error: string) => {
+    // Clear capture timeout
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current)
+      captureTimeoutRef.current = null
+    }
     dispatch({ type: 'CAPTURE_ERROR', error })
+  }, [])
+
+  // Pause session
+  const pauseSession = useCallback(() => {
+    clearAllTimers()
+    dispatch({ type: 'PAUSE_SESSION' })
+  }, [])
+
+  // Resume session
+  const resumeSession = useCallback(() => {
+    dispatch({ type: 'RESUME_SESSION' })
+  }, [])
+
+  // Cancel session
+  const cancelSession = useCallback(() => {
+    clearAllTimers()
+    dispatch({ type: 'CANCEL_SESSION' })
   }, [])
 
   // Retake a specific photo
   const retakePhoto = useCallback((index: number) => {
     isRetakingRef.current = true
+    clearAllTimers()
     dispatch({ type: 'RETAKE_PHOTO', index })
   }, [])
 
@@ -109,14 +188,7 @@ export function useCaptureSessionStateMachine() {
 
   // Reset the session for a new user
   const resetSession = useCallback(() => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current)
-      countdownIntervalRef.current = null
-    }
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current)
-      previewTimeoutRef.current = null
-    }
+    clearAllTimers()
     isRetakingRef.current = false
     dispatch({ type: 'RESET_SESSION' })
   }, [])
@@ -129,6 +201,8 @@ export function useCaptureSessionStateMachine() {
   // Computed values
   const isCapturing = session.state === 'capturing'
   const isCountingDown = session.state === 'countdown'
+  const isPaused = session.state === 'paused'
+  const isInterPhoto = session.state === 'inter-photo'
   const canRetake = session.state === 'review-all'
   const shotProgress = {
     current: session.currentPhotoIndex + 1,
@@ -140,9 +214,14 @@ export function useCaptureSessionStateMachine() {
     session,
     // Actions
     selectFrame,
+    configureCountdown,
+    enableAutoSequence,
     startCountdown,
     onCaptureComplete,
     onCaptureError,
+    pauseSession,
+    resumeSession,
+    cancelSession,
     retakePhoto,
     confirmPhotos,
     onProcessingComplete,
@@ -152,6 +231,8 @@ export function useCaptureSessionStateMachine() {
     // Computed
     isCapturing,
     isCountingDown,
+    isPaused,
+    isInterPhoto,
     canRetake,
     shotProgress,
     isRetaking

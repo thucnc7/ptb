@@ -3,6 +3,7 @@
  * Hub for admin features: Frame Templates, Camera Test, Google Drive
  */
 
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface SettingCard {
@@ -16,6 +17,35 @@ interface SettingCard {
 
 export function AdminSettingsScreen(): JSX.Element {
   const navigate = useNavigate()
+  const [mockCameraMode, setMockCameraMode] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadMockMode()
+  }, [])
+
+  const loadMockMode = async () => {
+    try {
+      const enabled = await window.electronAPI.camera.getMockMode()
+      setMockCameraMode(enabled)
+    } catch (e) {
+      console.error('Failed to load mock mode:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggleMockMode = async () => {
+    try {
+      const newValue = !mockCameraMode
+      const result = await window.electronAPI.camera.setMockMode(newValue)
+      if (result.success) {
+        setMockCameraMode(newValue)
+      }
+    } catch (e) {
+      console.error('Failed to toggle mock mode:', e)
+    }
+  }
 
   const settingCards: SettingCard[] = [
     {
@@ -133,6 +163,43 @@ export function AdminSettingsScreen(): JSX.Element {
               </div>
             </button>
           ))}
+        </div>
+
+        {/* Mock Camera Toggle */}
+        <div className="mt-8 p-6 bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1">Mock Camera Mode</h3>
+              <p className="text-slate-400 text-sm">
+                Enable mock camera for UI testing without real hardware 🎭
+              </p>
+            </div>
+            <button
+              onClick={handleToggleMockMode}
+              disabled={loading}
+              className={`relative w-16 h-8 rounded-full transition-all duration-300 cursor-pointer ${
+                mockCameraMode
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                  : 'bg-slate-700'
+              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div
+                className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg transition-all duration-300 ${
+                  mockCameraMode ? 'right-1' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
+          {mockCameraMode && (
+            <div className="mt-4 px-4 py-3 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+              <p className="text-purple-300 text-sm flex items-center gap-2">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                Mock camera is active. You can test UI flows without real camera hardware.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Version info */}

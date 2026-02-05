@@ -5,6 +5,11 @@ import type {
   CameraStatus,
   CaptureResult
 } from '../shared/types/camera-types'
+import type {
+  SessionInfo,
+  SavePhotoResult,
+  CompositeResult
+} from '../shared/types/session-types'
 
 // Expose protected methods to renderer process via context bridge
 
@@ -47,6 +52,20 @@ export interface ElectronAPI {
     dccManualRetry: () => Promise<void>
     onDccStateChanged: (callback: (data: { newState: string; oldState: string }) => void) => () => void
     onDccRecoveryFailed: (callback: (data: { reason: string }) => void) => () => void
+    // Mock camera mode
+    setMockMode: (enabled: boolean) => Promise<{ success: boolean; mockMode: boolean }>
+    getMockMode: () => Promise<boolean>
+  }
+
+  // Session management (Phase 5 - Image Compositing)
+  session: {
+    create: () => Promise<SessionInfo>
+    savePhoto: (sessionId: string, photoIndex: number, imageData: string) => Promise<SavePhotoResult>
+    composite: (sessionId: string, frame: Frame) => Promise<CompositeResult>
+    getComposite: (sessionId: string) => Promise<string> // data URL
+    getInfo: (sessionId: string) => Promise<SessionInfo | null>
+    delete: (sessionId: string) => Promise<void>
+    getFolderPath: (sessionId: string) => Promise<string | null>
   }
 
   // Image processing (Phase 5)
@@ -112,7 +131,26 @@ const electronAPI: ElectronAPI = {
       const listener = (_event: unknown, data: { reason: string }) => callback(data)
       ipcRenderer.on('dcc:recovery-failed', listener)
       return () => ipcRenderer.removeListener('dcc:recovery-failed', listener)
-    }
+    },
+    // Mock camera mode
+    setMockMode: (enabled) => ipcRenderer.invoke('camera:set-mock-mode', enabled),
+    getMockMode: () => ipcRenderer.invoke('camera:get-mock-mode')
+  },
+
+  session: {
+    create: () => ipcRenderer.invoke('session:create'),
+    savePhoto: (sessionId, photoIndex, imageData) =>
+      ipcRenderer.invoke('session:save-photo', sessionId, photoIndex, imageData),
+    composite: (sessionId, frame) =>
+      ipcRenderer.invoke('session:composite', sessionId, frame),
+    getComposite: (sessionId) =>
+      ipcRenderer.invoke('session:get-composite', sessionId),
+    getInfo: (sessionId) =>
+      ipcRenderer.invoke('session:get-info', sessionId),
+    delete: (sessionId) =>
+      ipcRenderer.invoke('session:delete', sessionId),
+    getFolderPath: (sessionId) =>
+      ipcRenderer.invoke('session:get-folder-path', sessionId)
   }
 }
 

@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { getCameraService } from '../services/camera-service'
+import { getCameraService, getCameraServiceManager } from '../services/camera-service-manager'
 import { getDccProcessMonitor } from '../services/dcc-process-monitor-service'
 
 export function registerCameraIpcHandlers(): void {
@@ -125,5 +125,18 @@ export function registerCameraIpcHandlers(): void {
   // Manual retry after circuit breaker opened
   ipcMain.handle('camera:dcc-manual-retry', () => {
     getDccProcessMonitor().manualRetry()
+  })
+
+  // --- Mock Camera Handlers ---
+
+  // Enable/disable mock camera mode
+  ipcMain.handle('camera:set-mock-mode', (_event, enabled: boolean) => {
+    getCameraServiceManager().setMockMode(enabled)
+    return { success: true, mockMode: enabled }
+  })
+
+  // Get current mock mode status
+  ipcMain.handle('camera:get-mock-mode', () => {
+    return getCameraServiceManager().isMockMode()
   })
 }

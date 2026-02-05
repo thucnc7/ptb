@@ -72,13 +72,13 @@ export function UserCaptureScreen() {
     }
 
     // REVIEW MODE
-    if (status === 'reviewing' || status === 'completed') {
+    if (status === 'review-all') {
         return (
             <div className="h-screen bg-gray-900 text-white p-8 flex flex-col">
                 <h1 className="text-3xl font-bold mb-6 text-center">Xem lại ảnh đã chụp</h1>
 
                 <div className="flex-1 grid grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto p-4">
-                    {session.photos.map((photo, index) => (
+                    {session.capturedPhotos.map((photo, index) => (
                         <div key={photo.id} className="relative bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700">
                             <div className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-bold z-10">
                                 #{index + 1}
@@ -138,7 +138,7 @@ export function UserCaptureScreen() {
                     <h2 className="text-2xl font-bold tracking-tight">{currentFrame.name}</h2>
                     <div className="flex items-center space-x-4 mt-2">
                         <span className="bg-pink-600 px-3 py-1 rounded-full text-sm font-bold">
-                            Ảnh {session.photos.length + 1} / {currentFrame.imageCaptures}
+                            Ảnh {session.capturedPhotos.length + 1} / {currentFrame.imageCaptures}
                         </span>
                     </div>
                 </div>
