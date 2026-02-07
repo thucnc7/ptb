@@ -11,7 +11,7 @@ import { createInitialSession, sessionReducer } from '../../shared/types/session
 
 const PHOTO_PREVIEW_DURATION_MS = 1500
 const INTER_PHOTO_PAUSE_MS = 2000
-const CAPTURE_TIMEOUT_MS = 30000
+const CAPTURE_TIMEOUT_MS = 15000  // Reduced from 30s - if autofocus fails, user shouldn't wait too long
 
 export function useCaptureSessionStateMachine() {
   const [session, dispatch] = useReducer(sessionReducer, null, createInitialSession)

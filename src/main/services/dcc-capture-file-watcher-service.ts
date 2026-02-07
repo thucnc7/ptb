@@ -71,23 +71,35 @@ export class DccCaptureFileWatcherService extends EventEmitter {
       ignored: [/\.(tmp|lock)$/, /node_modules/, /\.git/],
       ignoreInitial: true,  // Don't emit for existing files
       awaitWriteFinish: {
-        stabilityThreshold: 500,  // Wait 500ms for file to stabilize
-        pollInterval: 100
-      }
+        stabilityThreshold: 2000,  // Increased to 2s for large RAW files (CR2/NEF can be 25-50MB)
+        pollInterval: 200
+      },
+      usePolling: false  // Use native FS events for better performance
     })
 
     this.watcher.on('add', (filePath, stats) => {
+      console.log('[DEBUG] chokidar "add" event:', filePath)
       this.handleFileAdded(filePath, stats)
     })
 
+    this.watcher.on('change', (filePath) => {
+      console.log('[DEBUG] chokidar "change" event:', filePath)
+    })
+
     this.watcher.on('addDir', (dirPath) => {
-      console.log('New session folder detected:', dirPath)
+      console.log('[DEBUG] New session folder detected:', dirPath)
       this.emit('session-created', dirPath)
     })
 
     this.watcher.on('error', (error) => {
-      console.error('File watcher error:', error)
+      console.error('[DEBUG] File watcher error:', error)
       this.emit('error', error)
+    })
+
+    this.watcher.on('raw', (event, path) => {
+      if (IMAGE_EXTENSIONS.test(path || '')) {
+        console.log('[DEBUG] chokidar raw event:', event, path)
+      }
     })
 
     // Wait for watcher to be ready
@@ -102,10 +114,13 @@ export class DccCaptureFileWatcherService extends EventEmitter {
   private handleFileAdded(filePath: string, stats?: fs.Stats): void {
     // Only process image files
     if (!IMAGE_EXTENSIONS.test(filePath)) {
+      console.log('[DEBUG] Ignoring non-image file:', filePath)
       return
     }
 
-    console.log('Image captured:', filePath)
+    console.log('[DEBUG] handleFileAdded called for image:', filePath)
+    console.log('[DEBUG] File stats - size:', stats?.size, 'mtime:', stats?.mtime)
+    console.log('[DEBUG] Pending resolvers count:', this.pendingCaptureResolvers.length)
 
     const event: CaptureFileEvent = {
       filePath,
@@ -120,9 +135,12 @@ export class DccCaptureFileWatcherService extends EventEmitter {
     if (this.pendingCaptureResolvers.length > 0) {
       const resolver = this.pendingCaptureResolvers.shift()
       if (resolver) {
+        console.log('[DEBUG] Resolving pending capture promise with:', filePath)
         clearTimeout(resolver.timeout)
         resolver.resolve(filePath)
       }
+    } else {
+      console.log('[DEBUG] No pending resolvers to resolve')
     }
   }
 
@@ -133,8 +151,12 @@ export class DccCaptureFileWatcherService extends EventEmitter {
    * @param timeoutMs Maximum time to wait (default: 20000ms)
    */
   waitForNextCapture(timeoutMs: number = 20000): Promise<string> {
+    console.log('[DEBUG] waitForNextCapture called with timeout:', timeoutMs)
+    console.log('[DEBUG] Current pending resolvers:', this.pendingCaptureResolvers.length)
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        console.log('[DEBUG] Capture timeout triggered after', timeoutMs, 'ms')
         // Remove resolver from pending list
         const idx = this.pendingCaptureResolvers.findIndex(r => r.resolve === resolve)
         if (idx >= 0) {
@@ -144,6 +166,7 @@ export class DccCaptureFileWatcherService extends EventEmitter {
       }, timeoutMs)
 
       this.pendingCaptureResolvers.push({ resolve, reject, timeout })
+      console.log('[DEBUG] Resolver added, total pending:', this.pendingCaptureResolvers.length)
     })
   }
 

@@ -110,6 +110,19 @@ export class DccHttpClientService {
     try {
       const url = `http://${this.config.host}:${this.config.apiPort}/session.json`
       const response = await this.request(url, 5000)
+
+      // Validate response before parsing
+      if (!response || response.trim().length === 0) {
+        console.warn('DCC session.json returned empty response')
+        return null
+      }
+
+      // Validate response starts with JSON object
+      if (!response.trim().startsWith('{')) {
+        console.warn('DCC session.json returned non-JSON response')
+        return null
+      }
+
       return JSON.parse(response) as DccSessionData
     } catch (error) {
       console.error('Failed to fetch session.json:', error)

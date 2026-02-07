@@ -12,6 +12,23 @@ import type {
   DccMonitorConfig
 } from '../../shared/types/dcc-monitor-types'
 
+// Safe logging wrapper to prevent EPIPE errors when stdout is closed
+const safeLog = (...args: unknown[]): void => {
+  try {
+    console.log(...args)
+  } catch {
+    // Ignore EPIPE/write errors when console is unavailable
+  }
+}
+
+const safeError = (...args: unknown[]): void => {
+  try {
+    console.error(...args)
+  } catch {
+    // Ignore EPIPE/write errors when console is unavailable
+  }
+}
+
 const DEFAULT_CONFIG: DccMonitorConfig = {
   healthCheckIntervalMs: 10000,  // 10s as validated
   apiTimeoutMs: 2000,
@@ -41,11 +58,11 @@ export class DccProcessMonitorService extends EventEmitter {
    */
   start(): void {
     if (this.state !== 'stopped') {
-      console.log('DCC monitor already running')
+      safeLog('DCC monitor already running')
       return
     }
 
-    console.log('Starting DCC process monitor...')
+    safeLog('Starting DCC process monitor...')
     this.setState('checking')
 
     // Initial check
@@ -67,7 +84,7 @@ export class DccProcessMonitorService extends EventEmitter {
     }
     this.setState('stopped')
     this.removeAllListeners()
-    console.log('DCC monitor stopped')
+    safeLog('DCC monitor stopped')
   }
 
   /**
@@ -96,7 +113,7 @@ export class DccProcessMonitorService extends EventEmitter {
    */
   manualRetry(): void {
     if (this.state === 'failed') {
-      console.log('Manual retry triggered, resetting circuit breaker')
+      safeLog('Manual retry triggered, resetting circuit breaker')
       this.recoveryAttempts = 0
       this.recoveryStartTime = 0
       this.setState('checking')
@@ -109,7 +126,7 @@ export class DccProcessMonitorService extends EventEmitter {
 
     const oldState = this.state
     this.state = newState
-    console.log(`DCC state: ${oldState} -> ${newState}`)
+    safeLog(`DCC state: ${oldState} -> ${newState}`)
     this.emit('state-changed', newState, oldState)
   }
 
@@ -118,6 +135,18 @@ export class DccProcessMonitorService extends EventEmitter {
     if (this.state === 'recovering') return
 
     try {
+      // First check if DCC process is running (fast)
+      const isProcessRunning = await this.checkDccProcess()
+      safeLog('[DEBUG] DCC process running:', isProcessRunning)
+
+      if (!isProcessRunning) {
+        // Process not running, go offline
+        safeLog('[DEBUG] DCC process not running, going offline')
+        this.handleOffline()
+        return
+      }
+
+      // Process is running, check API health
       const health = await this.checkHealth()
       this.healthStatus = health
       this.emit('api-health', health)
@@ -131,11 +160,18 @@ export class DccProcessMonitorService extends EventEmitter {
           this.recoveryStartTime = 0
         }
       } else {
-        // DCC not responding
-        this.handleOffline()
+        // Process running but API not responding - might be starting up
+        if (this.state === 'checking') {
+          safeLog('[DEBUG] DCC process running but API not ready, waiting...')
+          // Don't go offline immediately, wait for API to be ready
+          // This handles the case when DCC is just starting up
+        } else {
+          // Was online before, now API not responding
+          this.handleOffline()
+        }
       }
     } catch (error) {
-      console.error('Health check error:', error)
+      safeError('Health check error:', error)
       this.handleOffline()
     }
   }
@@ -145,10 +181,12 @@ export class DccProcessMonitorService extends EventEmitter {
    */
   private async checkHealth(): Promise<DccHealthStatus> {
     const client = getDccHttpClient()
+    safeLog('[DEBUG] Checking API health on ports 5513/5514...')
     const [api, liveView] = await Promise.all([
       client.checkApiHealth(),
       client.checkLiveViewHealth()
     ])
+    safeLog('[DEBUG] Health result - API:', api, 'LiveView:', liveView)
 
     return {
       api,
@@ -198,19 +236,24 @@ export class DccProcessMonitorService extends EventEmitter {
     }
     this.recoveryAttempts++
 
-    console.log(`Recovery attempt ${this.recoveryAttempts}/${this.config.maxRecoveryAttempts}`)
-
-    // Calculate backoff delay
-    const delay = Math.min(
-      this.config.maxBackoffMs,
-      this.config.initialBackoffMs * Math.pow(2, this.recoveryAttempts - 1)
-    )
+    safeLog(`Recovery attempt ${this.recoveryAttempts}/${this.config.maxRecoveryAttempts}`)
 
     // Check if DCC process is running
     const isRunning = await this.checkDccProcess()
+    safeLog('[DEBUG] Recovery - DCC process running:', isRunning)
+
+    // Calculate backoff delay - shorter if process is running (API might be starting)
+    const delay = isRunning
+      ? Math.min(2000, this.config.initialBackoffMs)  // Quick retry if process is running
+      : Math.min(
+          this.config.maxBackoffMs,
+          this.config.initialBackoffMs * Math.pow(2, this.recoveryAttempts - 1)
+        )
 
     if (!isRunning) {
-      console.log('DCC process not running, waiting for user to start it...')
+      safeLog('DCC process not running, waiting for user to start it...')
+    } else {
+      safeLog('DCC process running but API not ready, retrying in', delay, 'ms')
     }
 
     // Wait with backoff then check again

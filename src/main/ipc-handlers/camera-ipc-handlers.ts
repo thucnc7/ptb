@@ -104,9 +104,14 @@ export function registerCameraIpcHandlers(): void {
 
   // Capture photo
   ipcMain.handle('camera:capture', async () => {
+    console.log('[DEBUG-IPC] camera:capture handler invoked')
     try {
-      return await getCameraService().capture()
+      console.log('[DEBUG-IPC] Calling getCameraService().capture()...')
+      const result = await getCameraService().capture()
+      console.log('[DEBUG-IPC] capture() returned:', result.success ? 'success' : result.error)
+      return result
     } catch (error) {
+      console.error('[DEBUG-IPC] capture() threw error:', error)
       throw new Error(`Failed to capture photo: ${error}`)
     }
   })

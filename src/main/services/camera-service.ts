@@ -230,19 +230,27 @@ export class CameraService {
     }
 
     const captureStart = Date.now()
+    console.log('[DEBUG] capture() started at', new Date().toISOString())
 
     // Check if file watcher is available
     if (getDccFileWatcher().isRunning()) {
+      console.log('[DEBUG] File watcher is running, using optimized capture')
       try {
         // OPTIMIZED: Set up file watcher BEFORE sending capture command
-        const capturePromise = getDccFileWatcher().waitForNextCapture(20000)
+        console.log('[DEBUG] Setting up file watcher promise...')
+        const capturePromise = getDccFileWatcher().waitForNextCapture(15000) // 15s timeout - balance between RAW file write time and autofocus failure
+        console.log('[DEBUG] File watcher promise created')
 
         // Trigger capture via DCC
         console.log('Sending capture command to DCC (optimized)...')
+        const cmdStart = Date.now()
         await this.sendCommand('cmd=Capture')
+        console.log(`[DEBUG] DCC capture command completed in ${Date.now() - cmdStart}ms`)
 
         // Wait for file watcher to detect the new image
+        console.log('[DEBUG] Waiting for file watcher to detect image...')
         const filePath = await capturePromise
+        console.log('[DEBUG] File watcher resolved with:', filePath)
 
         const captureTime = Date.now() - captureStart
         console.log(`✓ Optimized capture complete in ${captureTime}ms:`, filePath)
@@ -256,9 +264,12 @@ export class CameraService {
         }
 
       } catch (error) {
+        console.warn('[DEBUG] File watcher capture failed:', error)
         console.warn('File watcher capture failed, falling back to scan:', error)
         // Fall through to legacy scan method
       }
+    } else {
+      console.log('[DEBUG] File watcher NOT running, using fallback')
     }
 
     // FALLBACK: Legacy scanning method

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Sparkles, Camera, Zap, Star, Heart } from 'lucide-react'
+import { Sparkles, Camera, Zap, Star, Heart, FolderOpen } from 'lucide-react'
 import { QRCodeDisplay } from '../components/qr-code-display'
 import Confetti from 'react-confetti'
 
@@ -38,10 +38,13 @@ export function UserResultScreen() {
     const loadComposite = async () => {
       try {
         setIsLoading(true)
+        console.log('[RENDERER] Loading composite for session:', sessionId)
         const dataUrl = await window.electronAPI.session.getComposite(sessionId)
+        console.log('[RENDERER] Composite loaded, data URL length:', dataUrl?.length)
+        console.log('[RENDERER] Data URL prefix:', dataUrl?.substring(0, 100))
         setCompositeDataUrl(dataUrl)
       } catch (err) {
-        console.error('Failed to load composite:', err)
+        console.error('[RENDERER] Failed to load composite:', err)
         setError('Không thể tải ảnh. Vui lòng thử lại!')
       } finally {
         setIsLoading(false)
@@ -72,6 +75,15 @@ export function UserResultScreen() {
   }
 
   const finalDownloadUrl = downloadUrl || `https://photobooth.app/download/${sessionId}`
+
+  const handleOpenFolder = async () => {
+    if (!sessionId) return
+    try {
+      await window.electronAPI.session.openFolder(sessionId)
+    } catch (err) {
+      console.error('Failed to open folder:', err)
+    }
+  }
 
   if (error) {
     return (
@@ -174,9 +186,10 @@ export function UserResultScreen() {
       <div className="flex-1 flex gap-8 relative z-10 items-center justify-center">
         {/* Left: Composite Image */}
         <div
-          className={`transition-all duration-700 ${
+          className={`transition-all duration-700 flex items-center justify-center ${
             mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
+          style={{ maxHeight: 'calc(100vh - 280px)' }}
         >
           <div
             className="rounded-3xl overflow-hidden shadow-2xl"
@@ -185,26 +198,48 @@ export function UserResultScreen() {
               backdropFilter: 'blur(20px)',
               border: '2px solid rgba(255, 255, 255, 0.2)',
               boxShadow: '0 20px 60px rgba(139, 92, 246, 0.3)',
-              maxWidth: '600px',
-              maxHeight: '800px'
+              maxHeight: 'calc(100vh - 280px)'
             }}
           >
             {isLoading ? (
-              <div className="w-[600px] h-[800px] flex items-center justify-center">
+              <div className="w-80 h-96 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                   <Sparkles className="w-16 h-16 text-purple-400 animate-spin" />
                   <p className="text-xl text-purple-300">Đang tải ảnh...</p>
                 </div>
               </div>
             ) : compositeDataUrl ? (
-              <img
-                src={compositeDataUrl}
-                alt="Composite photo"
-                className="w-full h-full object-contain"
-                style={{ animation: 'fade-in 0.5s ease-out' }}
-              />
+              <div 
+                className="relative group cursor-pointer"
+                onClick={handleOpenFolder}
+                title="Nhấn để mở thư mục chứa ảnh"
+              >
+                <img
+                  src={compositeDataUrl}
+                  alt="Composite photo"
+                  className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                  style={{
+                    animation: 'fade-in 0.5s ease-out',
+                    maxHeight: 'calc(100vh - 300px)',
+                    maxWidth: '100%'
+                  }}
+                  onLoad={() => console.log('[RENDERER] Composite image loaded successfully')}
+                  onError={(e) => {
+                    console.error('[RENDERER] Failed to load composite image:', e)
+                    console.error('[RENDERER] Image src length:', compositeDataUrl?.length)
+                    console.error('[RENDERER] Image src prefix:', compositeDataUrl?.substring(0, 100))
+                  }}
+                />
+                {/* Hover overlay with folder icon */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl">
+                  <div className="flex flex-col items-center gap-2 text-white">
+                    <FolderOpen className="w-12 h-12" />
+                    <span className="text-lg font-medium">Mở thư mục</span>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <div className="w-[600px] h-[800px] flex items-center justify-center">
+              <div className="w-80 h-96 flex items-center justify-center">
                 <p className="text-xl text-red-400">Không tải được ảnh</p>
               </div>
             )}

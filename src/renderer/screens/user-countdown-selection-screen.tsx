@@ -16,7 +16,6 @@ export function UserCountdownSelectionScreen() {
   const [selectedPreset, setSelectedPreset] = useState<CountdownPreset | null>(DEFAULT_COUNTDOWN as CountdownPreset)
   const [customValue, setCustomValue] = useState<string>('5')
   const [showCustomInput, setShowCustomInput] = useState(false)
-  const [previewCount, setPreviewCount] = useState(3)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -25,16 +24,6 @@ export function UserCountdownSelectionScreen() {
       navigate('/user/select-frame')
     }
   }, [frameId, navigate])
-
-  // Preview countdown animation
-  useEffect(() => {
-    if (previewCount > 0) {
-      const timer = setTimeout(() => setPreviewCount(previewCount - 1), 1000)
-      return () => clearTimeout(timer)
-    } else {
-      setTimeout(() => setPreviewCount(3), 500)
-    }
-  }, [previewCount])
 
   const handlePresetClick = (preset: CountdownPreset) => {
     setSelectedPreset(preset)
@@ -143,9 +132,9 @@ export function UserCountdownSelectionScreen() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex gap-12 relative z-10">
-        {/* Left: Preset options */}
-        <div className="flex-1 flex flex-col gap-6">
+      <div className="flex-1 flex justify-center relative z-10">
+        {/* Preset options */}
+        <div className="max-w-3xl w-full flex flex-col gap-6">
           <p className="text-xl text-purple-300/80 mb-4">
             Chọn thời gian đếm ngược trước khi chụp mỗi ảnh:
           </p>
@@ -260,45 +249,6 @@ export function UserCountdownSelectionScreen() {
           </button>
         </div>
 
-        {/* Right: Preview animation */}
-        <div className="w-[400px] flex flex-col items-center justify-center">
-          <div className="text-center mb-8">
-            <p className="text-xl text-purple-300/80 mb-4">Xem trước:</p>
-          </div>
-
-          {/* Animated countdown preview */}
-          <div className="relative w-64 h-64 flex items-center justify-center">
-            {/* Pulsing circles */}
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: previewCount === 3
-                  ? 'radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%)'
-                  : previewCount === 2
-                  ? 'radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%)'
-                  : 'radial-gradient(circle, rgba(239, 68, 68, 0.3) 0%, transparent 70%)',
-                animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1)'
-              }}
-            />
-
-            {/* Countdown number */}
-            <div
-              className="relative text-9xl font-black"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                color: previewCount === 3 ? '#3B82F6' : previewCount === 2 ? '#F59E0B' : '#EF4444',
-                textShadow: `0 0 40px ${previewCount === 3 ? 'rgba(59, 130, 246, 0.5)' : previewCount === 2 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`,
-                animation: 'scale-pulse 1s ease-out'
-              }}
-            >
-              {previewCount}
-            </div>
-          </div>
-
-          <p className="text-purple-300/60 text-sm mt-8">
-            Đây là màn hình đếm ngược trước khi chụp
-          </p>
-        </div>
       </div>
 
       {/* Continue button */}
@@ -347,19 +297,6 @@ export function UserCountdownSelectionScreen() {
         @keyframes fade-slide-up {
           from { opacity: 0; transform: translateY(30px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes ping {
-          75%, 100% {
-            transform: scale(2);
-            opacity: 0;
-          }
-        }
-
-        @keyframes scale-pulse {
-          0% { transform: scale(0.8); opacity: 0; }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>

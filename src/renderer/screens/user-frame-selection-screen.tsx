@@ -117,13 +117,14 @@ export function UserFrameSelectionScreen() {
           <p className="text-gray-500">Hãy nhờ nhân viên thêm khung hình vào hệ thống nhé!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pb-8 relative z-10">
+        <div className="flex flex-wrap justify-center gap-6 overflow-y-auto pb-8 relative z-10">
           {frames.map((frame, index) => (
             <div
               key={frame.id}
               onClick={() => handleSelectFrame(frame.id)}
               className="group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.03]"
               style={{
+                width: '280px',
                 background: 'rgba(255, 255, 255, 0.08)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',

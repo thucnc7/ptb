@@ -66,6 +66,7 @@ export interface ElectronAPI {
     getInfo: (sessionId: string) => Promise<SessionInfo | null>
     delete: (sessionId: string) => Promise<void>
     getFolderPath: (sessionId: string) => Promise<string | null>
+    openFolder: (sessionId: string) => Promise<boolean> // Open folder containing composite
   }
 
   // Image processing (Phase 5)
@@ -150,7 +151,9 @@ const electronAPI: ElectronAPI = {
     delete: (sessionId) =>
       ipcRenderer.invoke('session:delete', sessionId),
     getFolderPath: (sessionId) =>
-      ipcRenderer.invoke('session:get-folder-path', sessionId)
+      ipcRenderer.invoke('session:get-folder-path', sessionId),
+    openFolder: (sessionId) =>
+      ipcRenderer.invoke('session:open-folder', sessionId)
   }
 }
 

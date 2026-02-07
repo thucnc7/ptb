@@ -25,6 +25,7 @@ export function UserCaptureSessionScreen() {
   const [loading, setLoading] = useState(true)
   const [showFlash, setShowFlash] = useState(false)
   const [dccAvailable, setDccAvailable] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   const {
     session,
@@ -42,7 +43,7 @@ export function UserCaptureSessionScreen() {
     shotProgress
   } = useCaptureSessionStateMachine()
 
-  const { connect, capture, status: cameraStatus } = useCameraConnection()
+  const { connect, capture } = useCameraConnection()
   const {
     playCountdownTick,
     playShutterSound,
@@ -69,6 +70,11 @@ export function UserCaptureSessionScreen() {
 
         setFrame(loadedFrame)
         selectFrame(loadedFrame)
+
+        // Create backend session for storing photos
+        const newSession = await window.electronAPI.session.create()
+        setSessionId(newSession.id)
+        console.log('Created session:', newSession.id)
 
         // Configure countdown from selection screen
         if (countdownConfig) {
@@ -123,6 +129,7 @@ export function UserCaptureSessionScreen() {
   }, [session.state, playSuccessSound])
 
   const performCapture = async () => {
+    console.log('[DEBUG-UI] performCapture() started, state:', session.state)
     try {
       setShowFlash(true)
       setTimeout(() => setShowFlash(false), 300)
@@ -130,14 +137,35 @@ export function UserCaptureSessionScreen() {
       // Play shutter sound
       playShutterSound()
 
+      console.log('[DEBUG-UI] Calling capture()...')
+      const captureStart = Date.now()
       const result = await capture()
+      console.log('[DEBUG-UI] capture() returned in', Date.now() - captureStart, 'ms:', result)
 
       if (result.success && result.filePath) {
+        // Save photo to backend session
+        if (sessionId) {
+          try {
+            console.log('[DEBUG-UI] Saving photo to session...')
+            await window.electronAPI.session.savePhoto(
+              sessionId,
+              session.currentPhotoIndex,
+              result.filePath
+            )
+            console.log(`[DEBUG-UI] Saved photo ${session.currentPhotoIndex} to session ${sessionId}`)
+          } catch (saveErr) {
+            console.error('[DEBUG-UI] Failed to save photo to session:', saveErr)
+          }
+        }
+        console.log('[DEBUG-UI] Calling onCaptureComplete...')
         onCaptureComplete(result.filePath, result.previewUrl)
+        console.log('[DEBUG-UI] onCaptureComplete done')
       } else {
+        console.log('[DEBUG-UI] Capture failed:', result.error)
         onCaptureError(result.error || 'Capture failed')
       }
     } catch (err) {
+      console.error('[DEBUG-UI] performCapture error:', err)
       onCaptureError(String(err))
     }
   }
@@ -151,11 +179,12 @@ export function UserCaptureSessionScreen() {
     confirmPhotos()
     navigate('/user/processing', {
       state: {
+        sessionId,
         frameId: frame?.id,
-        photos: session.capturedPhotos
+        frame
       }
     })
-  }, [confirmPhotos, navigate, frame, session.capturedPhotos])
+  }, [confirmPhotos, navigate, frame, sessionId])
 
   const handleCancel = useCallback(() => {
     resetSession()
@@ -187,6 +216,76 @@ export function UserCaptureSessionScreen() {
           </p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
+  }
+
+  // Error state - show error message and retry option
+  if (session.state === 'error') {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-8"
+        style={{
+          fontFamily: 'var(--font-body)',
+          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+        }}
+      >
+        <div className="text-center max-w-md">
+          <div
+            className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center"
+            style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '2px solid rgba(239, 68, 68, 0.5)'
+            }}
+          >
+            <Camera className="w-12 h-12 text-red-400" />
+          </div>
+          <h2
+            className="text-3xl font-bold mb-4 text-white"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            Chụp ảnh thất bại
+          </h2>
+          <p className="text-gray-400 mb-8">
+            {session.error || 'Không thể chụp ảnh. Vui lòng kiểm tra camera và thử lại.'}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={() => {
+                // Reset error and go back to idle to retry
+                resetSession()
+                if (frame) {
+                  selectFrame(frame)
+                  if (countdownConfig) {
+                    configureCountdown(countdownConfig)
+                    enableAutoSequence()
+                  }
+                }
+              }}
+              className="px-8 py-4 rounded-2xl font-bold text-white transition-all duration-200 cursor-pointer hover:scale-105"
+              style={{
+                fontFamily: 'var(--font-heading)',
+                background: 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)',
+                boxShadow: '0 4px 20px rgba(236, 72, 153, 0.4)'
+              }}
+            >
+              <Sparkles className="w-5 h-5 inline mr-2" />
+              Thử lại
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-8 py-4 rounded-2xl font-bold text-white transition-all duration-200 cursor-pointer hover:scale-105"
+              style={{
+                fontFamily: 'var(--font-heading)',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              <X className="w-5 h-5 inline mr-2" />
+              Hủy
+            </button>
+          </div>
+        </div>
       </div>
     )
   }

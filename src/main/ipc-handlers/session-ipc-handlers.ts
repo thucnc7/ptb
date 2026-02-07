@@ -3,8 +3,9 @@
  * Exposes session storage and image compositing services to renderer process
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
 import * as fs from 'fs/promises'
+import * as path from 'path'
 import { getSessionStorageService } from '../services/session-storage-service'
 import { getImageCompositingService } from '../services/image-compositing-service'
 import type { SavePhotoResult, CompositeResult } from '../../shared/types/session-types'
@@ -25,6 +26,10 @@ export function registerSessionIpcHandlers(): void {
   // Save photo to session
   ipcMain.handle('session:save-photo', async (_event, sessionId: string, photoIndex: number, imageData: string) => {
     try {
+      console.log(`[DEBUG-SESSION] save-photo called: sessionId=${sessionId}, photoIndex=${photoIndex}`)
+      console.log(`[DEBUG-SESSION] imageData type: ${imageData.startsWith('data:') ? 'data-url' : imageData.includes(':\\') ? 'file-path' : 'base64'}`)
+      console.log(`[DEBUG-SESSION] imageData preview: ${imageData.substring(0, 100)}...`)
+
       const service = getSessionStorageService()
 
       let buffer: Buffer
@@ -34,15 +39,20 @@ export function registerSessionIpcHandlers(): void {
         // Data URL format
         const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
         buffer = Buffer.from(base64Data, 'base64')
+        console.log(`[DEBUG-SESSION] Decoded data URL, buffer size: ${buffer.length}`)
       } else if (imageData.startsWith('/') || imageData.includes(':\\')) {
         // File path - read file
+        console.log(`[DEBUG-SESSION] Reading file from path: ${imageData}`)
         buffer = await fs.readFile(imageData)
+        console.log(`[DEBUG-SESSION] Read file, buffer size: ${buffer.length}`)
       } else {
         // Assume raw base64
         buffer = Buffer.from(imageData, 'base64')
+        console.log(`[DEBUG-SESSION] Decoded raw base64, buffer size: ${buffer.length}`)
       }
 
       const savedPath = await service.savePhoto(sessionId, photoIndex, buffer)
+      console.log(`[DEBUG-SESSION] Photo saved to: ${savedPath}`)
 
       const result: SavePhotoResult = {
         success: true,
@@ -60,6 +70,13 @@ export function registerSessionIpcHandlers(): void {
   // Composite photos into frame
   ipcMain.handle('session:composite', async (_event, sessionId: string, frame: Frame) => {
     try {
+      console.log(`[DEBUG-COMPOSITE] Starting composite for session: ${sessionId}`)
+      console.log(`[DEBUG-COMPOSITE] Frame: ${frame.name}, ${frame.width}x${frame.height}`)
+      console.log(`[DEBUG-COMPOSITE] Placeholders: ${frame.placeholders.length}`)
+      frame.placeholders.forEach((p, i) => {
+        console.log(`[DEBUG-COMPOSITE]   Placeholder ${i}: x=${p.x}%, y=${p.y}%, w=${p.width}%, h=${p.height}%`)
+      })
+
       const storageService = getSessionStorageService()
       const compositeService = getImageCompositingService()
 
@@ -68,9 +85,12 @@ export function registerSessionIpcHandlers(): void {
       if (!session) {
         throw new Error(`Session not found: ${sessionId}`)
       }
+      console.log(`[DEBUG-COMPOSITE] Session folder: ${session.folderPath}`)
 
       // Get photo paths from session
       const photoPaths = await storageService.listPhotos(sessionId)
+      console.log(`[DEBUG-COMPOSITE] Found ${photoPaths.length} photos:`)
+      photoPaths.forEach((p, i) => console.log(`[DEBUG-COMPOSITE]   ${i}: ${p}`))
 
       if (photoPaths.length === 0) {
         throw new Error('No photos found in session')
@@ -83,13 +103,16 @@ export function registerSessionIpcHandlers(): void {
       }))
 
       // Run compositing
+      console.log(`[DEBUG-COMPOSITE] Running compositing with ${photos.length} photos...`)
       const compositeResult = await compositeService.composite({
         frame,
         photos
       })
+      console.log(`[DEBUG-COMPOSITE] Compositing complete, buffer size: ${compositeResult.buffer.length}`)
 
       // Save composite to session
       const compositePath = await storageService.saveComposite(sessionId, compositeResult.buffer)
+      console.log(`[DEBUG-COMPOSITE] Saved composite to: ${compositePath}`)
 
       const result: CompositeResult = {
         success: true,
@@ -149,6 +172,24 @@ export function registerSessionIpcHandlers(): void {
     } catch (error) {
       console.error('IPC session:get-folder-path error:', error)
       throw new Error(`Failed to get folder path: ${error}`)
+    }
+  })
+
+  // Open folder containing the composite image
+  ipcMain.handle('session:open-folder', async (_event, sessionId: string) => {
+    try {
+      const service = getSessionStorageService()
+      const compositePath = service.getCompositePath(sessionId)
+      
+      // Check if file exists
+      await fs.access(compositePath)
+      
+      // Open folder and select the file
+      shell.showItemInFolder(compositePath)
+      return true
+    } catch (error) {
+      console.error('IPC session:open-folder error:', error)
+      throw new Error(`Failed to open folder: ${error}`)
     }
   })
 }

@@ -46,7 +46,14 @@
       "Bash(ELECTRON_RUN_AS_NODE='' ./node_modules/electron/dist/electron.exe:*)",
       "Bash(cmd.exe /c \"echo %ELECTRON_RUN_AS_NODE%\")",
       "Bash(powershell -Command \"[Environment]::GetEnvironmentVariable\\(''ELECTRON_RUN_AS_NODE'', ''User''\\)\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(npx @electron/rebuild:*)",
+      "Bash(ping:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run compile:*)",
+      "Bash(npm run:*)",
+      "Bash(find \"C:\\\\Users\\\\Le thuc\\\\AppData\\\\Roaming\\\\photobooth\\\\sessions\\\\session-1770314684778\" -name \"*.jpg\" -exec ls -lh {} ;)"
     ]
   }
 }

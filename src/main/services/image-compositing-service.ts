@@ -34,15 +34,17 @@ export class ImageCompositingService {
     const { width, height } = frame
 
     try {
-      // Step 1: Create base canvas (white background)
-      let canvas = sharp({
+      // Step 1: Create base canvas (white background) and convert to buffer first
+      // CRITICAL: Sharp's composite() doesn't work correctly when chained directly from create()
+      // Must materialize the base canvas as a buffer before compositing
+      const baseCanvas = await sharp({
         create: {
           width,
           height,
           channels: 3,
           background: { r: 255, g: 255, b: 255 }
         }
-      })
+      }).jpeg().toBuffer()
 
       // Step 2: Prepare photo composites in parallel
       const photoComposites = await Promise.all(
@@ -71,8 +73,11 @@ export class ImageCompositingService {
         })
       )
 
-      // Step 3: Composite all photos onto canvas
-      canvas = canvas.composite(photoComposites)
+      // Step 3: Composite all photos onto base canvas
+      let compositeBuffer = await sharp(baseCanvas)
+        .composite(photoComposites)
+        .jpeg()
+        .toBuffer()
 
       // Step 4: Apply frame overlay layers (if using new layer system)
       if (frame.layers && frame.layers.length > 0) {
@@ -94,12 +99,15 @@ export class ImageCompositingService {
             })
           )
 
-          canvas = canvas.composite(layerComposites)
+          compositeBuffer = await sharp(compositeBuffer)
+            .composite(layerComposites)
+            .jpeg()
+            .toBuffer()
         }
       }
 
-      // Step 5: Encode as JPEG buffer (quality 90)
-      const buffer = await canvas
+      // Step 5: Final encoding as JPEG (quality 90)
+      const buffer = await sharp(compositeBuffer)
         .jpeg({ quality: 90, mozjpeg: true })
         .toBuffer()
 
@@ -129,7 +137,12 @@ export class ImageCompositingService {
       const pixelWidth = this.percentToPixels(placeholder.width, frameWidth)
       const pixelHeight = this.percentToPixels(placeholder.height, frameHeight)
 
+      console.log(`[DEBUG-SHARP] Loading photo: ${photoPath}`)
+      console.log(`[DEBUG-SHARP] Target size: ${pixelWidth}x${pixelHeight}px`)
+
       let image = sharp(photoPath)
+      const metadata = await image.metadata()
+      console.log(`[DEBUG-SHARP] Source image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`)
 
       // Resize to fit placeholder (cover mode, center position)
       image = image.resize(pixelWidth, pixelHeight, {
@@ -144,7 +157,11 @@ export class ImageCompositingService {
         })
       }
 
-      return await image.toBuffer()
+      // CRITICAL: Must specify format (jpeg/png) before toBuffer() for composite() to work
+      // Without format, Sharp outputs raw pixel data which composite() cannot process
+      const buffer = await image.jpeg({ quality: 95 }).toBuffer()
+      console.log(`[DEBUG-SHARP] Photo prepared, buffer size: ${buffer.length}`)
+      return buffer
     } catch (error) {
       console.error(`Failed to prepare photo ${photoPath}:`, error)
       throw new Error(`Failed to prepare photo: ${error}`)
@@ -181,7 +198,8 @@ export class ImageCompositingService {
         })
       }
 
-      return await image.toBuffer()
+      // CRITICAL: Must specify format for composite() to work
+      return await image.png().toBuffer()
     } catch (error) {
       console.error(`Failed to prepare layer ${layer.id}:`, error)
       throw new Error(`Failed to prepare layer: ${error}`)
