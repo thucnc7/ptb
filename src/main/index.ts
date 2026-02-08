@@ -48,10 +48,8 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // Open DevTools in development
-  if (isDev()) {
-    mainWindow.webContents.openDevTools()
-  }
+  // Open DevTools (temporarily enabled for production debugging)
+  mainWindow.webContents.openDevTools()
 
   // F11 for fullscreen toggle
   mainWindow.webContents.on('before-input-event', (event, input) => {
