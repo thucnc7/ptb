@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { HomeScreen } from './screens/home-screen'
 import { AdminSettingsScreen } from './screens/admin-settings-screen'
 import { AdminFrameListScreen } from './screens/admin-frame-list-screen'
@@ -12,7 +12,7 @@ import { UserResultScreen } from './screens/user-result-screen'
 
 export function App(): JSX.Element {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="min-h-screen bg-gray-900 text-white">
         <Routes>
           {/* Home / Mode Selection */}
@@ -37,6 +37,6 @@ export function App(): JSX.Element {
           <Route path="/user/result" element={<UserResultScreen />} />
         </Routes>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
