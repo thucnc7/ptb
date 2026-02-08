@@ -41,23 +41,33 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // Log load errors for debugging
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc) => {
+    console.error(`[LOAD FAIL] code=${code} desc=${desc}`)
+  })
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[RENDERER CRASHED]', details)
+  })
+
   // Load the renderer
+  const rendererPath = join(__dirname, '../renderer/index.html')
+  console.log('[MAIN] __dirname:', __dirname)
+  console.log('[MAIN] Loading renderer from:', rendererPath)
   if (isDev() && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(rendererPath)
   }
 
-  // Open DevTools (temporarily enabled for production debugging)
+  // Always open DevTools for debugging production issues
   mainWindow.webContents.openDevTools()
 
-  // F11 for fullscreen toggle
+  // F11 fullscreen, F12 DevTools (works in all modes)
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F11') {
       mainWindow?.setFullScreen(!mainWindow.isFullScreen())
     }
-    // F12 for DevTools in dev mode
-    if (input.key === 'F12' && isDev()) {
+    if (input.key === 'F12') {
       mainWindow?.webContents.toggleDevTools()
     }
   })
