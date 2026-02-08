@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCameraConnection } from '../hooks/use-camera-connection'
 import { DccLiveView } from '../components/dcc-live-view'
+import { WebcamLiveView, type WebcamLiveViewRef } from '../components/webcam-live-view'
 import { useNavigate } from 'react-router-dom'
 
 export function AdminCameraTestScreen() {
@@ -9,13 +10,17 @@ export function AdminCameraTestScreen() {
     status,
     connectionState,
     cameras,
+    cameraMode,
     refreshCameras,
     connect,
     disconnect,
     startLiveView,
     stopLiveView,
-    capture
+    capture,
+    webcamCapture
   } = useCameraConnection()
+  const webcamRef = useRef<WebcamLiveViewRef>(null)
+  const isWebcam = cameraMode === 'webcam'
 
   const [lastCapture, setLastCapture] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -99,7 +104,13 @@ export function AdminCameraTestScreen() {
   const handleCapture = async () => {
     setLoading(true)
     try {
-      const result = await capture()
+      let result
+      if (isWebcam && webcamRef.current) {
+        const frameData = await webcamRef.current.captureFrame()
+        result = await webcamCapture(frameData)
+      } else {
+        result = await capture()
+      }
       setLastCapture(result.filePath || null)
       if (result.success) {
         alert(`Photo captured: ${result.filePath}`)
@@ -158,7 +169,9 @@ export function AdminCameraTestScreen() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Camera Test</h1>
-            <p className="text-gray-400">Phase 3 - Canon Camera Integration Test</p>
+            <p className="text-gray-400">
+              {isWebcam ? 'Webcam Mode' : 'Phase 3 - Canon Camera Integration Test'}
+            </p>
           </div>
           <button
             onClick={() => navigate('/admin/frames')}
@@ -168,8 +181,8 @@ export function AdminCameraTestScreen() {
           </button>
         </div>
 
-        {/* DCC Setup Guide */}
-        <div className="bg-gray-900 rounded-lg p-6 mb-8 border border-gray-800">
+        {/* DCC Setup Guide - hidden in webcam mode */}
+        {!isWebcam && <div className="bg-gray-900 rounded-lg p-6 mb-8 border border-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               📸 digiCamControl Setup
@@ -257,7 +270,7 @@ export function AdminCameraTestScreen() {
               )}
             </div>
           </div>
-        </div>
+        </div>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left: Camera Controls */}
@@ -347,10 +360,10 @@ export function AdminCameraTestScreen() {
                 {!status.connected ? (
                   <button
                     onClick={handleConnect}
-                    disabled={loading || !isDccReady}
+                    disabled={loading || (!isWebcam && !isDccReady)}
                     className="col-span-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium disabled:opacity-50"
                   >
-                    {loading ? 'Connecting...' : 'Connect Camera'}
+                    {loading ? 'Connecting...' : isWebcam ? 'Connect Webcam' : 'Connect Camera'}
                   </button>
                 ) : (
                   <>
@@ -404,8 +417,21 @@ export function AdminCameraTestScreen() {
 
           {/* Right: Live View */}
           <div className="bg-gray-900 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">📹 Live View (từ digiCamControl)</h2>
-            {status.liveViewActive ? (
+            <h2 className="text-xl font-semibold mb-4">
+              {isWebcam ? '🎥 Live View (Webcam)' : '📹 Live View (từ digiCamControl)'}
+            </h2>
+            {isWebcam ? (
+              status.connected ? (
+                <WebcamLiveView ref={webcamRef} className="w-full aspect-video" mirror={true} />
+              ) : (
+                <div className="w-full aspect-video bg-gray-800 rounded-lg flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p className="mb-2">🎥 Webcam mode</p>
+                    <p className="text-sm">Nhấn Connect Webcam để bắt đầu</p>
+                  </div>
+                </div>
+              )
+            ) : status.liveViewActive ? (
               <DccLiveView className="w-full aspect-video" />
             ) : (
               <div className="w-full aspect-video bg-gray-800 rounded-lg flex items-center justify-center">

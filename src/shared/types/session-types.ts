@@ -28,7 +28,7 @@ export type SessionState =
   | 'capturing'      // Saving photo
   | 'photo-preview'  // Brief preview of just captured photo
   | 'inter-photo'    // Breathing room between captures (2s)
-  | 'review-all'     // Session complete, review all photos
+  | 'photo-selection' // Pick best N photos from N+extra captures
   | 'processing'     // Compositing
   | 'uploading'      // Uploading to drive
   | 'qr-display'     // Show QR code
@@ -50,6 +50,7 @@ export interface CaptureSession {
   totalPhotos: number
   currentPhotoIndex: number
   capturedPhotos: CapturedPhoto[]
+  selectedPhotoIndices: number[]            // Photo indices selected for frame slots
   countdownValue: number
   countdownConfig: CountdownConfig | null  // User-selected countdown
   autoSequenceEnabled: boolean             // Auto-capture mode
@@ -61,7 +62,7 @@ export interface CaptureSession {
 }
 
 export type SessionAction =
-  | { type: 'SELECT_FRAME'; frame: Frame }
+  | { type: 'SELECT_FRAME'; frame: Frame; extraPhotos: number }
   | { type: 'CONFIGURE_COUNTDOWN'; config: CountdownConfig }
   | { type: 'ENABLE_AUTO_SEQUENCE' }
   | { type: 'START_COUNTDOWN' }
@@ -75,8 +76,7 @@ export type SessionAction =
   | { type: 'PAUSE_SESSION' }
   | { type: 'RESUME_SESSION' }
   | { type: 'CANCEL_SESSION' }
-  | { type: 'RETAKE_PHOTO'; index: number }
-  | { type: 'CONFIRM_PHOTOS' }
+  | { type: 'CONFIRM_PHOTOS'; selectedPhotoIndices: number[] }
   | { type: 'PROCESSING_COMPLETE'; compositePath: string }
   | { type: 'UPLOAD_COMPLETE'; driveFileId: string; downloadLink: string; qrCodeDataUrl: string }
   | { type: 'RESET_SESSION' }
@@ -89,6 +89,7 @@ export const createInitialSession = (): CaptureSession => ({
   totalPhotos: 0,
   currentPhotoIndex: 0,
   capturedPhotos: [],
+  selectedPhotoIndices: [],
   countdownValue: 5,
   countdownConfig: null,
   autoSequenceEnabled: false,
@@ -107,7 +108,7 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
         id: `session-${Date.now()}`,
         state: 'idle',
         frameId: action.frame.id,
-        totalPhotos: action.frame.imageCaptures,
+        totalPhotos: action.frame.imageCaptures + action.extraPhotos,
         currentPhotoIndex: 0
       }
 
@@ -147,16 +148,7 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
       }
 
     case 'CAPTURE_COMPLETE': {
-      const isRetake = state.capturedPhotos.some(p => p.index === action.photo.index)
-      let newPhotos = [...state.capturedPhotos]
-
-      if (isRetake) {
-        newPhotos = newPhotos.map(p => p.index === action.photo.index ? action.photo : p)
-      } else {
-        newPhotos.push(action.photo)
-      }
-
-      // Sort by index
+      const newPhotos = [...state.capturedPhotos, action.photo]
       newPhotos.sort((a, b) => a.index - b.index)
 
       return {
@@ -179,7 +171,7 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
       if (isComplete) {
         return {
           ...state,
-          state: 'review-all'
+          state: 'photo-selection'
         }
       }
 
@@ -231,18 +223,11 @@ export function sessionReducer(state: CaptureSession, action: SessionAction): Ca
     case 'CANCEL_SESSION':
       return createInitialSession()
 
-    case 'RETAKE_PHOTO':
-      return {
-        ...state,
-        state: 'idle',
-        currentPhotoIndex: action.index,
-        autoSequenceEnabled: false // Disable auto-sequence for retake
-      }
-
     case 'CONFIRM_PHOTOS':
       return {
         ...state,
-        state: 'processing'
+        state: 'processing',
+        selectedPhotoIndices: action.selectedPhotoIndices
       }
 
     case 'PROCESSING_COMPLETE':

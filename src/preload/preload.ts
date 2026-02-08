@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { Frame } from '../shared/types/frame-types'
 import type {
   CameraInfo,
+  CameraMode,
   CameraStatus,
   CaptureResult
 } from '../shared/types/camera-types'
@@ -52,16 +53,21 @@ export interface ElectronAPI {
     dccManualRetry: () => Promise<void>
     onDccStateChanged: (callback: (data: { newState: string; oldState: string }) => void) => () => void
     onDccRecoveryFailed: (callback: (data: { reason: string }) => void) => () => void
-    // Mock camera mode
+    // Mock camera mode (backward compat)
     setMockMode: (enabled: boolean) => Promise<{ success: boolean; mockMode: boolean }>
     getMockMode: () => Promise<boolean>
+    // Camera mode switching
+    setMode: (mode: CameraMode) => Promise<{ success: boolean; mode: CameraMode }>
+    getMode: () => Promise<CameraMode>
+    // Webcam capture
+    webcamCapture: (imageDataUrl: string) => Promise<CaptureResult>
   }
 
   // Session management (Phase 5 - Image Compositing)
   session: {
     create: () => Promise<SessionInfo>
     savePhoto: (sessionId: string, photoIndex: number, imageData: string) => Promise<SavePhotoResult>
-    composite: (sessionId: string, frame: Frame) => Promise<CompositeResult>
+    composite: (sessionId: string, frame: Frame, selectedPhotoIndices?: number[]) => Promise<CompositeResult>
     getComposite: (sessionId: string) => Promise<string> // data URL
     getInfo: (sessionId: string) => Promise<SessionInfo | null>
     delete: (sessionId: string) => Promise<void>
@@ -69,17 +75,11 @@ export interface ElectronAPI {
     openFolder: (sessionId: string) => Promise<boolean> // Open folder containing composite
   }
 
-  // Image processing (Phase 5)
-  // image: {
-  //   composite: (backgroundPath: string, photos: string[], placeholders: Placeholder[]) => Promise<string>
-  // }
-
-  // Google Drive (Phase 6)
-  // drive: {
-  //   authenticate: () => Promise<void>
-  //   upload: (filePath: string) => Promise<string>
-  //   getDownloadLink: (fileId: string) => Promise<string>
-  // }
+  // Settings
+  settings: {
+    getExtraPhotos: () => Promise<number>
+    setExtraPhotos: (count: number) => Promise<{ success: boolean }>
+  }
 }
 
 const electronAPI: ElectronAPI = {
@@ -133,17 +133,22 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.on('dcc:recovery-failed', listener)
       return () => ipcRenderer.removeListener('dcc:recovery-failed', listener)
     },
-    // Mock camera mode
+    // Mock camera mode (backward compat)
     setMockMode: (enabled) => ipcRenderer.invoke('camera:set-mock-mode', enabled),
-    getMockMode: () => ipcRenderer.invoke('camera:get-mock-mode')
+    getMockMode: () => ipcRenderer.invoke('camera:get-mock-mode'),
+    // Camera mode switching
+    setMode: (mode) => ipcRenderer.invoke('camera:set-mode', mode),
+    getMode: () => ipcRenderer.invoke('camera:get-mode'),
+    // Webcam capture
+    webcamCapture: (imageDataUrl) => ipcRenderer.invoke('camera:webcam-capture', imageDataUrl)
   },
 
   session: {
     create: () => ipcRenderer.invoke('session:create'),
     savePhoto: (sessionId, photoIndex, imageData) =>
       ipcRenderer.invoke('session:save-photo', sessionId, photoIndex, imageData),
-    composite: (sessionId, frame) =>
-      ipcRenderer.invoke('session:composite', sessionId, frame),
+    composite: (sessionId, frame, selectedPhotoIndices) =>
+      ipcRenderer.invoke('session:composite', sessionId, frame, selectedPhotoIndices),
     getComposite: (sessionId) =>
       ipcRenderer.invoke('session:get-composite', sessionId),
     getInfo: (sessionId) =>
@@ -154,6 +159,11 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.invoke('session:get-folder-path', sessionId),
     openFolder: (sessionId) =>
       ipcRenderer.invoke('session:open-folder', sessionId)
+  },
+
+  settings: {
+    getExtraPhotos: () => ipcRenderer.invoke('settings:get-extra-photos'),
+    setExtraPhotos: (count) => ipcRenderer.invoke('settings:set-extra-photos', count)
   }
 }
 

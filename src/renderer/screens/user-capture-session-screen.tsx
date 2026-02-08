@@ -3,7 +3,7 @@
  * Orchestrates: live preview → countdown → capture → photo preview → review all
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { X, Sparkles, Camera, Heart, Star } from 'lucide-react'
 import type { Frame } from '../../shared/types/frame-types'
@@ -12,8 +12,9 @@ import { useCaptureSessionStateMachine } from '../hooks/use-capture-session-stat
 import { useCameraConnection } from '../hooks/use-camera-connection'
 import { useAudioFeedback } from '../hooks/use-audio-feedback'
 import { DccLiveView } from '../components/dcc-live-view'
+import { WebcamLiveView, type WebcamLiveViewRef } from '../components/webcam-live-view'
 import { CountdownOverlayFullscreen, CaptureFlashEffect } from '../components/countdown-overlay-fullscreen'
-import { CapturedPhotosPreviewGrid } from '../components/captured-photos-preview-grid'
+import { PhotoSelectionPanel } from '../components/photo-selection-panel'
 
 export function UserCaptureSessionScreen() {
   const { frameId } = useParams<{ frameId: string }>()
@@ -35,7 +36,6 @@ export function UserCaptureSessionScreen() {
     startCountdown,
     onCaptureComplete,
     onCaptureError,
-    retakePhoto,
     confirmPhotos,
     resetSession,
     isCapturing,
@@ -43,7 +43,8 @@ export function UserCaptureSessionScreen() {
     shotProgress
   } = useCaptureSessionStateMachine()
 
-  const { connect, capture } = useCameraConnection()
+  const { connect, capture, cameraMode, webcamCapture } = useCameraConnection()
+  const webcamRef = useRef<WebcamLiveViewRef>(null)
   const {
     playCountdownTick,
     playShutterSound,
@@ -69,7 +70,15 @@ export function UserCaptureSessionScreen() {
         }
 
         setFrame(loadedFrame)
-        selectFrame(loadedFrame)
+
+        // Fetch extraPhotos setting for total capture count (fallback to 3 if settings API not available)
+        let extraPhotos = 3
+        try {
+          extraPhotos = await window.electronAPI.settings.getExtraPhotos()
+        } catch (e) {
+          console.warn('Failed to fetch extraPhotos, using default:', e)
+        }
+        selectFrame(loadedFrame, extraPhotos)
 
         // Create backend session for storing photos
         const newSession = await window.electronAPI.session.create()
@@ -82,11 +91,17 @@ export function UserCaptureSessionScreen() {
           enableAutoSequence() // Enable auto-sequence mode
         }
 
-        const available = await window.electronAPI.camera.checkDccAvailable()
-        setDccAvailable(available)
-
-        if (available) {
+        // Non-DCC modes: skip DCC check, auto-connect
+        const mode = await window.electronAPI.camera.getMode()
+        if (mode === 'webcam' || mode === 'mock') {
+          setDccAvailable(true) // non-DCC modes are always "available"
           await connect()
+        } else {
+          const available = await window.electronAPI.camera.checkDccAvailable()
+          setDccAvailable(available)
+          if (available) {
+            await connect()
+          }
         }
       } catch (err) {
         console.error('Failed to initialize capture session:', err)
@@ -139,7 +154,14 @@ export function UserCaptureSessionScreen() {
 
       console.log('[DEBUG-UI] Calling capture()...')
       const captureStart = Date.now()
-      const result = await capture()
+
+      let result
+      if (cameraMode === 'webcam' && webcamRef.current) {
+        const frameData = await webcamRef.current.captureFrame()
+        result = await webcamCapture(frameData)
+      } else {
+        result = await capture()
+      }
       console.log('[DEBUG-UI] capture() returned in', Date.now() - captureStart, 'ms:', result)
 
       if (result.success && result.filePath) {
@@ -175,13 +197,14 @@ export function UserCaptureSessionScreen() {
     startCountdown()
   }, [startCountdown, playStartSound])
 
-  const handleConfirm = useCallback(() => {
-    confirmPhotos()
+  const handleConfirmWithSelection = useCallback((selectedPhotoIndices: number[]) => {
+    confirmPhotos(selectedPhotoIndices)
     navigate('/user/processing', {
       state: {
         sessionId,
         frameId: frame?.id,
-        frame
+        frame,
+        selectedPhotoIndices
       }
     })
   }, [confirmPhotos, navigate, frame, sessionId])
@@ -251,11 +274,12 @@ export function UserCaptureSessionScreen() {
           </p>
           <div className="flex gap-4 justify-center">
             <button
-              onClick={() => {
+              onClick={async () => {
                 // Reset error and go back to idle to retry
                 resetSession()
                 if (frame) {
-                  selectFrame(frame)
+                  const extraPhotos = await window.electronAPI.settings.getExtraPhotos()
+                  selectFrame(frame, extraPhotos)
                   if (countdownConfig) {
                     configureCountdown(countdownConfig)
                     enableAutoSequence()
@@ -290,36 +314,21 @@ export function UserCaptureSessionScreen() {
     )
   }
 
-  // Review all photos state
-  if (session.state === 'review-all') {
+  // Photo selection state: user picks best N photos from N+extra captures
+  if (session.state === 'photo-selection' && frame) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center p-8"
+        className="min-h-screen"
         style={{
           fontFamily: 'var(--font-body)',
           background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
         }}
       >
-        <CapturedPhotosPreviewGrid
-          photos={session.capturedPhotos}
-          totalSlots={session.totalPhotos}
-          onRetake={retakePhoto}
-          onConfirm={handleConfirm}
-          canRetake={true}
+        <PhotoSelectionPanel
+          capturedPhotos={session.capturedPhotos}
+          frame={frame}
+          onConfirm={handleConfirmWithSelection}
         />
-
-        <button
-          onClick={handleCancel}
-          className="fixed bottom-8 left-8 flex items-center gap-2 px-6 py-3 rounded-2xl text-white transition-all duration-200 cursor-pointer hover:scale-105"
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
-          }}
-        >
-          <X className="w-5 h-5" />
-          Hủy
-        </button>
       </div>
     )
   }
@@ -438,7 +447,9 @@ export function UserCaptureSessionScreen() {
     >
       {/* Live view */}
       <div className="absolute inset-0">
-        {dccAvailable ? (
+        {cameraMode === 'webcam' ? (
+          <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
+        ) : dccAvailable ? (
           <DccLiveView className="w-full h-full" />
         ) : (
           <div

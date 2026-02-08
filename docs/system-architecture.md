@@ -1,1029 +1,430 @@
-# System Architecture
+# Photo Booth - System Architecture
 
-**Last Updated**: 2026-01-28
-**Version**: 2.9.0-beta.2
-**Project**: ClaudeKit Engineer
+**Last Updated**: 2026-02-07
+**Version**: 0.1.0-beta
+**Project**: Photo Booth (PTB)
 
 ## Overview
 
-ClaudeKit Engineer implements a multi-agent AI orchestration architecture where specialized agents collaborate through a file-based communication protocol. The system enables developers to leverage AI assistance throughout the entire software development lifecycle - from planning and implementation to testing, review, and deployment.
+Photo Booth is an Electron + React application with three main layers:
+1. **Main Process** (Electron) - Camera control, IPC handlers, settings persistence
+2. **Renderer Process** (React) - UI components, state machines, user interaction
+3. **IPC Bridge** (Preload) - Safe communication between main and renderer
 
-## Architectural Pattern
+## Architectural Patterns
 
 ### Pattern Classification
-**Primary Pattern**: Microservices-inspired Agent Architecture
-**Secondary Patterns**:
-- Command Pattern (slash commands)
-- Observer Pattern (agent communication)
-- Strategy Pattern (workflow selection)
-- Template Method Pattern (agent workflows)
+- **Multi-Process Architecture**: Electron main/renderer separation
+- **State Machine Pattern**: Capture session orchestration via `use-capture-session-state-machine`
+- **Command Pattern**: IPC-based command handlers for camera/settings operations
+- **Container-Presentational**: Screens (containers) + Components (presentation)
+- **Hook-Based State**: React custom hooks for reusable logic
 
 ### Design Philosophy
-- **Decoupled Agents**: Each agent is independent and specialized
-- **File-Based Communication**: Agents communicate via markdown reports
-- **Workflow Orchestration**: Coordinated agent execution (sequential/parallel)
-- **Configuration-Driven**: Agents and commands defined in markdown
-- **AI-First Development**: Leverage AI at every stage of SDLC
+- **Separation of Concerns**: Main process handles I/O, renderer handles UI
+- **Immutable State**: Functional updates via useState/useReducer
+- **Type Safety**: Full TypeScript across all layers
+- **IPC-First Communication**: No direct main-process access from renderer
+- **User-Centric Flow**: Photo selection before confirmation (no discarding)
 
 ## System Components
 
-### 1. Core Layer
+### 1. Main Process Layer
 
-#### 1.1 CLI Interface
-**Location**: Claude Code / Open Code CLI
-**Responsibility**: User interaction and command routing
+#### 1.1 Application Entry (`src/main/index.ts`)
+**Responsibility**: Electron window creation and lifecycle
 **Key Functions**:
-- Parse slash commands
-- Route to appropriate agent workflows
-- Display results to users
-- Manage conversation context
+- Create BrowserWindow for renderer
+- Register IPC handlers
+- Handle app lifecycle (quit, activate)
+- Load index.html in development/production
 
-**Technology**: Anthropic Claude Code CLI / OpenCode AI CLI
+#### 1.2 IPC Handlers (`src/main/ipc-handlers/`)
 
-#### 1.2 Command Parser
-**Location**: Built into CLI
-**Responsibility**: Command interpretation and argument extraction
-**Input**: Slash command with arguments (`/command arg1 arg2`)
-**Output**: Parsed command and argument values
-**Argument Variables**:
-- `$ARGUMENTS` - All arguments as single string
-- `$1, $2, $3...` - Individual positional arguments
+**Camera IPC Handler** (`camera-ipc-handlers.ts`)
+- **Namespace**: `camera:`
+- **Commands**:
+  - `camera:connect` - Detect and connect to camera (Canon/Webcam)
+  - `camera:capture` - Trigger photo capture
+  - `camera:getStatus` - Get current camera status
+  - `camera:disconnect` - Release camera resources
+- **Flow**: Renderer sends command → Handler forwards to CameraServiceManager → Response back
 
-#### 1.3 Configuration Manager
-**Location**: `.claude/` directory
-**Responsibility**: Load agent and command definitions
-**File Types**:
-- Agent definitions (`.md` with YAML frontmatter)
-- Command definitions (`.md` with embedded agent calls)
-- Skill modules (knowledge bases)
-- Workflow templates
+**Session IPC Handler** (`session-ipc-handlers.ts`)
+- **Namespace**: `session:`
+- **Commands**:
+  - `session:create` - Initialize capture session
+  - `session:capturePhoto` - Record photo metadata
+  - `session:confirmPhotos` - Mark selected photos for processing
+  - `session:getSession` - Retrieve current session state
+  - `session:reset` - Clear session
 
-### 2. Agent Layer
+**Settings IPC Handler** (`settings-ipc-handlers.ts`) - NEW
+- **Namespace**: `settings:`
+- **Commands**:
+  - `settings:get` - Retrieve current settings (e.g., extraPhotos: 3)
+  - `settings:set` - Update and persist settings
+  - `settings:reset` - Restore defaults
+- **Persistence**: JSON file-based storage in user data directory
 
-#### 2.1 Agent Types (14 Agents)
+#### 1.3 Camera Service Manager (`src/main/services/camera-service-manager.ts`)
+**Responsibility**: Camera abstraction layer
+**Key Features**:
+- Multi-camera support (Canon DCC, Webcam)
+- Live preview streaming
+- Photo capture with metadata
+- Status tracking and error handling
+- Service locator pattern for camera instances
 
-**Planning Agents**:
-- `planner` - Technical planning and architecture (Opus)
-- `researcher` - Research and analysis
-- `brainstormer` - Solution ideation
+**Supported Cameras**:
+1. Canon EOS via DCC (Digital Camera Control)
+2. Webcam (fallback/testing)
+3. Mock camera (development only)
 
-**Implementation Agents**:
-- `fullstack-developer` - Full-stack implementation
-- `ui-ux-designer` - Design creation and UX analysis
-- `code-simplifier` - Code optimization and simplification
+### 2. Renderer Layer
 
-**Quality Assurance Agents**:
-- `code-reviewer` - Code quality assessment and standards
-- `tester` - Test creation and execution
-- `debugger` - Issue analysis, root-cause diagnosis
+#### 2.1 State Management
 
-**Documentation & Operations Agents**:
-- `docs-manager` - Documentation maintenance (Gemini)
-- `journal-writer` - Development decision journaling
-- `git-manager` - Version control and commit management
-- `project-manager` - Progress tracking and oversight
-- `mcp-manager` - MCP server management and integration
-
-#### 2.2 Agent Definition Structure
-
-```yaml
----
-name: agent-name
-description: Agent purpose and use cases
-mode: subagent | all
-model: anthropic/claude-sonnet-4-20250514
-temperature: 0.1
----
-
-# Agent instructions in markdown
-## Core Responsibilities
-## Workflow Process
-## Output Requirements
-## Quality Standards
+**Session State Machine** (`src/renderer/hooks/use-capture-session-state-machine.ts`)
+**States**:
+```
+IDLE → FRAME_SELECTED → CAPTURING → PHOTOS_CAPTURED →
+PHOTO_SELECTION → CONFIRMED → PROCESSING → COMPLETE
 ```
 
-**Agent Modes**:
-- `subagent`: Spawned by other agents, runs independently
-- `all`: Can be invoked as main or sub agent
+**Actions**:
+- `selectFrame(frameId)` - Set target frame
+- `configureCountdown(config)` - Set countdown timer settings
+- `startCountdown()` - Begin countdown timer
+- `onCaptureComplete(photoIndex, imageBuffer)` - Record captured photo
+- `confirmPhotos(selectedIndices)` - Confirm N photos from N+extra pool
+- `resetSession()` - Return to IDLE
 
-**Model Selection**:
-- `claude-sonnet-4-20250514` - Fast, efficient (most agents)
-- `claude-opus-4-1-20250805` - Advanced reasoning (planner-researcher)
-- `google/gemini-2.5-flash` - Cost-effective (docs-manager)
-- `grok-code` - Specialized (git-manager)
-
-#### 2.3 Agent Communication Protocol
-
-**Communication Medium**: File system (markdown files)
-**Report Location**: `./plans/<plan-name>/reports/`
-**Naming Convention**: `{date}-from-[source]-to-[dest]-[task]-report.md`
-
-**Report Structure**:
-```markdown
-# Task Report: [Task Name]
-
-**From**: [Source Agent]
-**To**: [Destination Agent]
-**Date**: YYYY-MM-DD
-**Status**: [Complete|In Progress|Blocked]
-
-## Summary
-Brief overview of findings/results
-
-## Details
-Comprehensive information
-
-## Recommendations
-Actionable next steps
-
-## Concerns
-Issues, blockers, or questions
-```
-
-**Communication Patterns**:
-1. **Request-Response**: Agent A requests, Agent B responds
-2. **Broadcast**: Agent publishes report for multiple consumers
-3. **Chain**: Sequential handoffs (A → B → C)
-4. **Fan-Out**: Parallel execution (A spawns B, C, D)
-5. **Fan-In**: Collect results from parallel agents
-
-### 3. Command Layer
-
-#### 3.1 Command Categories
-
-**Core Development**:
-- `/plan` - Research and planning
-- `/cook` - Feature implementation
-- `/test` - Test execution
-- `/ask` - Technical consultation
-- `/bootstrap` - Project initialization
-- `/brainstorm` - Solution ideation
-- `/debug` - Deep analysis
-
-**Command Directories** (`.claude/commands/`):
-- `bootstrap/` - Project initialization workflows
-- `docs/` - Documentation commands
-- `plan/` - Planning command variants
-- `review/` - Code review workflows
-- `test/` - Testing commands
-
-#### 3.2 Command Workflow Pattern
-
-```
-User Input: /command [args]
-    ↓
-Command Parser
-    ↓
-Load Command Definition
-    ↓
-Substitute Arguments
-    ↓
-Execute Agent Workflow
-    ↓
-Sequential or Parallel Execution
-    ↓
-Collect Results
-    ↓
-Present to User
-```
-
-### 4. Workflow Layer
-
-#### 4.1 Orchestration Patterns
-
-**Sequential Chaining**:
-```
-Planner → Researcher → Planner → Main Agent → Tester → Code Reviewer → Docs Manager → Git Manager
-```
-Use when tasks have dependencies
-
-**Parallel Execution**:
-```
-            ┌─→ Researcher (Auth) ─┐
-Planner ────┼─→ Researcher (DB) ───┼─→ Planner (Synthesize)
-            └─→ Researcher (UI) ───┘
-```
-Use for independent research tasks
-
-**Query Fan-Out**:
-```
-Main Agent → Planner → [Multiple Researchers in Parallel] → Planner → Main Agent
-```
-Explore different approaches simultaneously
-
-#### 4.2 Standard Workflows
-
-**Feature Development Workflow**:
-1. User: `/cook "add user authentication"`
-2. Planner: Create implementation plan
-3. Researchers: Explore auth solutions (parallel)
-4. Planner: Synthesize research, create detailed plan
-5. Main Agent: Implement code
-6. Main Agent: Run type checking/compilation
-7. Tester: Write and run tests
-8. (If tests fail): Debugger analyzes, loop to step 5
-9. Code Reviewer: Review implementation
-10. Docs Manager: Update documentation
-11. Git Manager: Commit with conventional message
-
-**Bug Fix Workflow**:
-1. User: `/debug "API timeout errors"`
-2. Debugger: Analyze logs and system
-3. Debugger: Identify root cause
-4. Planner: Create fix plan
-5. Main Agent: Implement solution
-6. Tester: Validate fix
-7. Code Reviewer: Review changes
-8. Git Manager: Commit fix
-
-**Documentation Update Workflow**:
-1. User: `/docs:update`
-2. Docs Manager: Check doc freshness
-3. (If >1 day old): Run `repomix` for codebase summary
-4. Docs Manager: Analyze codebase changes
-5. Docs Manager: Update affected documentation
-6. Docs Manager: Validate naming conventions
-7. Docs Manager: Create update report
-
-### 5. Skills Layer
-
-#### 5.1 Skill Architecture
-
-**Purpose**: Reusable knowledge modules for specific technologies
-
-**Structure**:
-```
-.claude/skills/
-└── [skill-name]/
-    ├── SKILL.md           # Main skill definition
-    ├── references/        # Supporting documentation
-    │   ├── api-ref.md
-    │   └── examples.md
-    └── scripts/           # Utility scripts (if applicable)
-```
-
-**Skill Categories**:
-- **Authentication**: better-auth
-- **Cloud Platforms**: Cloudflare, Google Cloud
-- **Databases**: MongoDB, PostgreSQL
-- **Design**: Canvas design generation
-- **Debugging**: Systematic approaches
-- **Development**: Next.js, Turborepo
-- **Documentation**: Repomix, docs-seeker
-- **Document Processing**: PDF, DOCX, PPTX, XLSX
-- **Infrastructure**: Docker
-- **Media**: FFmpeg, ImageMagick
-- **MCP**: Server building
-- **Problem Solving**: Meta-patterns, thinking frameworks
-- **UI Frameworks**: shadcn/ui, Tailwind CSS
-- **Ecommerce**: Shopify
-
-#### 5.2 Skill Invocation
-
-**Invocation**: `Skill` tool in CLI
-**Usage**: Agents invoke skills to access specialized knowledge
-**Example**:
-```
-Planner needs Next.js expertise
-  ↓
-Invokes "nextjs" skill
-  ↓
-Skill provides implementation guidance
-  ↓
-Planner incorporates into plan
-```
-
-### 6. Integration Layer
-
-#### 6.1 Hook System (8 Core Hooks)
-
-**Purpose**: Intercept and control Claude Code operations for performance, context management, and security
-
-**Hook Architecture**:
-All hooks located in `.claude/hooks/` with consistent patterns - fail-safe exit code 0 (non-blocking)
-
-**Additional Hooks**:
-- `privacy-block.cjs` - Sensitive file access control
-- `descriptive-name.cjs` - Naming conventions enforcement
-- `post-edit-simplify-reminder.cjs` - Post-edit optimization hints
-- `usage-context-awareness.cjs` - Context-aware usage patterns
-
-**1. Session-Init Hook** (`session-init.cjs`)
-- **Trigger**: Session startup
-- **Purpose**: Initialize session state and context
-- **Functionality**:
-  - Detects project type (monorepo vs library)
-  - Identifies package manager (pnpm/npm/yarn)
-  - Detects framework (Next.js, React, etc.)
-  - Writes 25+ environment variables for context cascade
-  - Enables efficient context reuse across agents
-
-**2. Dev-Rules-Reminder Hook** (`dev-rules-reminder.cjs`)
-- **Trigger**: Every user prompt
-- **Purpose**: Inject development context and rules
-- **Functionality**:
-  - Injects current development rules from `.claude/rules/`
-  - Smart deduplication prevents redundant context
-  - Suggests branch-matched workflows
-  - Optimized for minimal token overhead
-  - Enables consistent behavior across team
-
-**3. Subagent-Init Hook** (`subagent-init.cjs`)
-- **Trigger**: When spawning subagents
-- **Purpose**: Provide minimal context to subagents
-- **Functionality**:
-  - Injects ~200 tokens of essential context
-  - Eliminates need for full context retransmission
-  - Enables efficient agent-to-agent communication
-  - Reduces token consumption for delegation patterns
-  - Recent optimization: v1.20.0-beta.12 tuned for token efficiency
-
-**4. Scout-Block Hook** (`scout-block.cjs` - Cross-Platform)
-- **Trigger**: Before bash/command execution
-- **Purpose**: Block access to heavy directories for performance
-- **Architecture**:
-  - Node.js dispatcher with platform-specific implementations
-  - Windows: PowerShell implementation (`scout-block.ps1`)
-  - Unix (Linux/macOS/WSL): Bash implementation (`scout-block.sh`)
-  - Platform Detection: Automatic via `process.platform`
-  - Zero-config setup
-
-**Functionality**:
-- Blocks access to heavy directories (node_modules, __pycache__, .git/, dist/, build/)
-- Input validation (JSON structure, command presence)
-- Error handling with exit codes (0 = allow, 2 = block/error)
-- Security: sanitized error messages, input validation
-- Performance: Reduces AI token usage and improves response time
-
-**Testing**:
-- Cross-platform test suites (`test-scout-block.sh`, `test-scout-block.ps1`)
-- Comprehensive coverage (11 Unix tests, 7 Windows tests)
-- Validates: blocked/allowed patterns, error handling, edge cases, JSON validation
-
-**Hook Configuration** (`.claude/settings.json`):
-```json
+**State Properties**:
+```typescript
 {
-  "hooks": {
-    "SubagentStart": [{
-      "matcher": "*",
-      "hooks": [{
-        "type": "command",
-        "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/subagent-init.cjs"
-      }]
-    }],
-    "BeforeBash": [{
-      "type": "command",
-      "command": "node ${CLAUDE_PROJECT_DIR}/.claude/hooks/scout-block.js"
-    }]
+  session: {
+    id: string
+    frameId: string
+    photos: CapturedPhoto[]  // N+extra photos
+    countdownConfig: CountdownConfig
+    state: SessionState
+    selectedPhotoIndices: number[]  // Confirmed selection
   }
 }
 ```
 
-**Hook Features Summary**:
-- Fail-Safe: All hooks exit 0 (non-blocking) - graceful degradation
-- Performance: Optimized token consumption
-- Cross-Platform: Windows (PowerShell) & Unix (Bash) support
-- Context Cascade: Environment variables flow from session to agents
-- Smart Dedup: Prevent redundant context injection
-- Comprehensive Testing: Cross-platform test coverage
+**Camera Connection Hook** (`src/renderer/hooks/use-camera-connection.ts`)
+**Manages**:
+- Camera connect/disconnect lifecycle
+- Capture command delegation to main process
+- Camera mode detection (Canon/Webcam)
+- Error recovery
 
-#### 6.2 MCP (Model Context Protocol) Integration
+#### 2.2 Components Architecture
 
-**Available MCP Servers**:
+**Screen Components** (`src/renderer/screens/`)
+- **`home-screen.tsx`** - Frame selection entry point
+- **`user-capture-session-screen.tsx`** - Capture orchestration + photo selection
+- **`user-capture-screen.tsx`** - Live preview + countdown
+- **`user-processing-screen.tsx`** - Composite generation progress
+- **`admin-settings-screen.tsx`** - Settings UI (NEW: extraPhotos)
+- **`admin-camera-test-screen.tsx`** - Camera testing and setup
 
-**docs-seeker** skill (Documentation):
-- Read latest docs for packages/plugins
-- Access up-to-date technical information
-
-**sequential-thinking** skill (Problem Solving):
-- Structured thinking process
-- Break down complex problems
-- Reflective analysis
-
-**ai-multimodal** skill (Visual Analysis):
-- Describe images, videos, documents
-- UI/UX analysis from screenshots
-
-**ai-multimodal & imagemagick skills** (Generation & Processing):
-- Generate images, videos, and documents via ai-multimodal skills
-- Perform design asset creation and edits with imagemagick skill workflows
-
-**brain** (Advanced Reasoning):
-- Sequential thinking
-- Code analysis
-- Debugging assistance
-
-#### 6.3 Preview Dashboard System (COMPLETE - Phase 6)
-
-**Purpose**: Interactive web-based visualization of implementation plans and project progress
-
-**Architecture**:
+**Photo Selection Components** (NEW)
 ```
-.claude/skills/markdown-novel-viewer/
-├── scripts/
-│   ├── server.cjs              # HTTP server & request handler
-│   ├── lib/
-│   │   ├── plan-scanner.cjs    # Plan discovery & metadata extraction
-│   │   ├── dashboard-renderer.cjs  # Plan cards & dashboard rendering
-│   │   ├── plan-navigator.cjs  # Plan file parsing & traversal
-│   │   ├── markdown-renderer.cjs  # Markdown to HTML conversion
-│   │   ├── http-server.cjs     # HTTP server utilities
-│   │   ├── port-finder.cjs     # Available port detection
-│   │   └── process-mgr.cjs     # Process management
-│   ├── tests/                  # Test suites
-│   └── ...                     # Other modules
-├── assets/
-│   ├── dashboard-template.html # Dashboard UI template
-│   ├── dashboard.css           # Dashboard styles + theme
-│   └── dashboard.js            # Interactive dashboard logic
-└── SKILL.md                    # Skill documentation
+PhotoSelectionPanel (orchestrator)
+├── PhotoSelectionCapturedGrid (left 40%)
+│   ├── PhotoGridItem (clickable photo)
+│   ├── PhotoGridItem
+│   └── ...
+└── PhotoSelectionFrameSlots (right 60%)
+    ├── FrameSlot (drop target / preview)
+    ├── FrameSlot
+    └── ...
 ```
 
-**Core Components** (All 6 Phases Complete):
+**Supporting Components**
+- **`countdown-overlay-fullscreen.tsx`** - Countdown timer display + capture flash
+- **`frame-card.tsx`** - Frame template preview
+- **`dcc-live-view.tsx`** - Canon camera live preview
+- **`webcam-live-view.tsx`** - Webcam preview (new)
 
-**Phase 1-2: Infrastructure**
-- Plan Scanner, HTTP Server, Port detection utilities
-- Real-time plan discovery & metadata extraction
-- Security validation (path traversal prevention)
+#### 2.3 Type System (`src/shared/types/`)
 
-**Phase 3-4: API & Data**
-- `/dashboard` route with HTML UI
-- `/api/dashboard` JSON API endpoint
-- Comprehensive metadata extraction (name, progress, status, phases, timestamps)
+**`session-types.ts`**
+```typescript
+interface CapturedPhoto {
+  index: number           // Sequential capture index
+  timestamp: number       // Capture time
+  imageBuffer: Buffer     // Raw image data
+  preview?: string        // Base64 thumbnail for UI
+}
 
-**Phase 5-6: UI & Features** (COMPLETE)
-1. **Dashboard Renderer** (`dashboard-renderer.cjs`):
-   - Generates plan cards with progress visualization
-   - Calculates progress rings and status bars
-   - Supports sorting: by date, alphabetically, by progress
-   - Real-time filtering by status (all/pending/active/completed)
-   - Full-text search across plan names and descriptions
-
-2. **Dashboard Template** (`dashboard-template.html`):
-   - Responsive grid layout (auto-fit cards)
-   - Sticky header with controls
-   - Search bar with debounced input
-   - Sort/filter dropdowns
-   - Plan cards with metadata
-
-3. **Dashboard Styles** (`dashboard.css`):
-   - Dark/light theme support with CSS variables
-   - WCAG 2.1 AA color contrast compliance
-   - Progress ring visualization (SVG-based)
-   - Responsive design (mobile-first)
-   - Smooth transitions and animations
-
-4. **Dashboard Logic** (`dashboard.js`):
-   - Client-side filtering and sorting
-   - Theme toggle (persisted in localStorage)
-   - Real-time search with regex support
-   - Accessibility features (keyboard navigation, ARIA labels)
-   - Plan card interactions and detail views
-
-**Data Flow**:
-```
-User Request (/dashboard)
-    ↓
-HTTP Server
-    ↓
-Plan Scanner (discovers plans in ./plans)
-    ↓
-Dashboard Renderer (generates cards with progress)
-    ↓
-Dashboard Template (renders HTML with cards)
-    ↓
-Dashboard JS (enables interactivity)
-    ↓
-User sees sorted/filtered plan grid
+interface SessionState {
+  id: string
+  frameId: string
+  photos: CapturedPhoto[]
+  selectedPhotoIndices: number[]  // User's selection
+  state: 'capturing' | 'selecting' | 'confirmed'
+}
 ```
 
-**Features Complete**:
-- Real-time plan discovery (no manual updates)
-- Interactive card-based grid layout
-- Progress tracking with percentage calculation & rings
-- Status derivation (pending/in-progress/completed)
-- Sorting: date (newest first), alphabetical, progress %
-- Filtering: all, pending, active, completed
-- Full-text search with highlighting
-- Dark/light theme toggle with persistence
-- WCAG 2.1 AA accessibility compliance
-- Responsive mobile-friendly design
-- Phase breakdown with status indicators
-- Timestamp tracking for plan modifications
-- Security-validated path traversal
-
-#### 6.4 External Service Integration
-
-**GitHub**:
-- Actions (CI/CD automation)
-- Releases (semantic versioning)
-- Issues and PRs (project management)
-
-**Discord**:
-- Webhook notifications
-- Project updates
-- Team communication
-
-**NPM** (Optional):
-- Package publishing
-- Version management
-
-### 7. Data Layer
-
-#### 7.1 File-Based Storage
-
-**Configuration Data**:
-- `.claude/` - Claude Code config
-- `.gitignore` - Git exclusions
-- `package.json` - Node.js config
-- `.releaserc.json` - Release config
-
-**Runtime Data**:
-- `plans/` - Implementation plans
-- `plans/<plan-name>/reports/` - Agent communication
-- `plans/<plan-name>/research/` - Research reports
-- `docs/` - Project documentation
-- `repomix-output.xml` - Codebase compaction
-
-**Version Control**:
-- `.git/` - Git repository
-- `CHANGELOG.md` - Version history
-- Git tags - Release versions
-
-#### 7.2 Data Flow
-
-```
-User Input
-    ↓
-Command Parsing
-    ↓
-Agent Execution
-    ↓
-File System (Reports/Plans)
-    ↓
-Agent Reading
-    ↓
-Processing
-    ↓
-File System (Updated Docs/Code)
-    ↓
-Version Control (Git)
-    ↓
-Remote Repository (GitHub)
+**`frame-types.ts`**
+```typescript
+interface Frame {
+  id: string
+  name: string
+  imageCaptures: number  // N photos needed
+  layout: LayoutConfig
+  template: string       // SVG/image path
+}
 ```
 
-## Component Interactions
+**`camera-types.ts`** - UPDATED
+```typescript
+interface CameraSettings {
+  extraPhotos: number    // 1-5, default 3
+  countdownSeconds: number
+  enableQR: boolean
+}
 
-### Typical Interaction Flow: Feature Implementation
-
-```
-┌─────────────┐
-│    User     │
-└──────┬──────┘
-       │ /cook "add auth"
-       ↓
-┌─────────────────────┐
-│   Command Parser    │
-└──────┬──────────────┘
-       │ Parse command + args
-       ↓
-┌─────────────────────┐
-│  Planner Agent      │
-└──────┬──────────────┘
-       │ Spawn researchers
-       ↓
-┌──────────────────────────────────┐
-│  Researchers (Parallel)          │
-│  - Auth strategies               │
-│  - Security best practices       │
-│  - Integration patterns          │
-└──────┬───────────────────────────┘
-       │ Reports to planner
-       ↓
-┌─────────────────────┐
-│  Planner Agent      │
-└──────┬──────────────┘
-       │ Create plan
-       │ Save to ./plans/
-       ↓
-┌─────────────────────┐
-│   Main Agent        │
-└──────┬──────────────┘
-       │ Read plan
-       │ Implement code
-       ↓
-┌─────────────────────┐
-│  Tester Agent       │
-└──────┬──────────────┘
-       │ Write & run tests
-       ↓
-┌─────────────────────┐
-│ Code Reviewer Agent │
-└──────┬──────────────┘
-       │ Review quality
-       ↓
-┌─────────────────────┐
-│ Docs Manager Agent  │
-└──────┬──────────────┘
-       │ Update docs
-       ↓
-┌─────────────────────┐
-│  Git Manager Agent  │
-└──────┬──────────────┘
-       │ Commit & push
-       ↓
-┌─────────────────────┐
-│   User (Result)     │
-└─────────────────────┘
+interface CameraDevice {
+  id: string
+  name: string
+  type: 'canon' | 'webcam' | 'mock'
+  status: 'available' | 'busy' | 'error'
+}
 ```
 
-### Agent Communication Example
-
-```
-plans/<plan-name>/reports/251026-from-planner-to-main-auth-plan-report.md
-    ↓
-Main Agent reads plan
-    ↓
-Implements features
-    ↓
-plans/<plan-name>/reports/251026-from-main-to-tester-auth-impl-report.md
-    ↓
-Tester reads implementation details
-    ↓
-Runs tests
-    ↓
-plans/<plan-name>/reports/251026-from-tester-to-main-test-results-report.md
+**`countdown-types.ts`**
+```typescript
+interface CountdownConfig {
+  duration: number       // Total seconds
+  interval: number       // Tick frequency (ms)
+  warnings: number[]     // Beep at these seconds
+}
 ```
 
-## Technology Stack
+### 3. IPC Bridge (`src/preload/preload.ts`)
 
-### Core Technologies
+**Purpose**: Safe API exposure to renderer process
+**Pattern**: Context Bridge for controlled access
 
-**Runtime Environment**:
-- Node.js >= 18.0.0
-- Bash scripting (hooks)
-
-**AI Platforms**:
-- Anthropic Claude (Sonnet 4, Opus 4)
-- Google Gemini 2.5 Flash
-- OpenRouter (multi-model support)
-- Grok Code
-
-**Development Tools**:
-- Semantic Release (versioning)
-- Commitlint (commit standards)
-- Husky (git hooks)
-- Repomix (codebase compaction)
-
-**CI/CD**:
-- GitHub Actions
-- Conventional Commits
-- Semantic Versioning
-
-### Agent Skills Ecosystem
-
-**Sequential Thinking**: Problem decomposition
-**brain**: Advanced reasoning
-**docs-seeker**: Documentation access
-**ai-multimodal**: Visual understanding
-**ai-multimodal & imagemagick skills**: Content generation and processing
+**Exposed API**:
+```typescript
+contextBridge.exposeInMainWorld('electronAPI', {
+  camera: {
+    connect: (type: string) => ipcRenderer.invoke('camera:connect', type),
+    capture: () => ipcRenderer.invoke('camera:capture'),
+    getStatus: () => ipcRenderer.invoke('camera:getStatus'),
+  },
+  session: {
+    create: (frameId: string) => ipcRenderer.invoke('session:create', frameId),
+    capturePhoto: (buffer: Buffer) => ipcRenderer.invoke('session:capturePhoto', buffer),
+    confirmPhotos: (indices: number[]) => ipcRenderer.invoke('session:confirmPhotos', indices),
+  },
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    set: (updates: Partial<AppSettings>) => ipcRenderer.invoke('settings:set', updates),
+  },
+  frames: {
+    getAll: () => ipcRenderer.invoke('frames:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('frames:getById', id),
+  }
+})
+```
 
 ## Data Flow Diagrams
 
-### Command Execution Flow
-
+### Photo Capture + Selection Flow
 ```
-User → CLI → Parser → Command Def → Agent Workflow
-                                         ↓
-                        ┌────────────────┴────────────────┐
-                        ↓                                 ↓
-                Sequential Execution              Parallel Execution
-                        ↓                                 ↓
-                Agent A → Agent B → Agent C    Agent A + Agent B + Agent C
-                        ↓                                 ↓
-                        └─────────────┬───────────────────┘
-                                      ↓
-                              Collect Results
-                                      ↓
-                              Present to User
+[Frame Selection]
+        ↓
+[Capture N + extraPhotos]
+        ↓
+[PhotoSelectionPanel]
+├─ Left: PhotoSelectionCapturedGrid (all N+extra)
+├─ User clicks photos to assign to slots
+└─ Right: PhotoSelectionFrameSlots (N slots)
+        ↓
+[Confirm Button] → selectedPhotoIndices[]
+        ↓
+[Compositing Uses Selected Photos]
 ```
 
-### File-Based Communication Flow
-
+### IPC Message Flow
 ```
-Agent A (Planner)
-    ↓ Writes
-./plans/<plan-name>/plan.md
-    ↓ Reads
-Main Agent
-    ↓ Implements
-Code Changes
-    ↓ Writes
-./plans/<plan-name>/reports/251026-from-main-to-tester-impl-report.md
-    ↓ Reads
-Tester Agent
-    ↓ Executes
-Tests
-    ↓ Writes
-./plans/<plan-name>/reports/251026-from-tester-to-main-results-report.md
-    ↓ Reads
-Main Agent (next steps)
+Renderer Component
+    ↓ dispatch action
+use-capture-session-state-machine
+    ↓ calls ipcRenderer.invoke()
+Preload Bridge (contextBridge)
+    ↓ forwards to ipcMain.handle()
+Main Process Handler (IPC Handler)
+    ↓ delegates to Service Layer
+Service (CameraServiceManager, etc.)
+    ↓ returns result
+Main Process Handler
+    ↓ returns Promise
+Preload Bridge
+    ↓ returns to Promise
+Renderer Hook / Component
+    ↓ updates state
+Re-render
 ```
 
-### Documentation Update Flow
-
+### Settings Update Flow
 ```
-Code Changes
+AdminSettingsScreen (slider change)
     ↓
-Docs Manager Triggered
+window.electronAPI.settings.set({ extraPhotos: 4 })
     ↓
-Check Freshness (< 1 day?)
+IPC: settings:set → settingsIpcHandler
     ↓
-┌─────────┴─────────┐
-↓ No (outdated)     ↓ Yes (fresh)
-Run Repomix         Read Existing
-    ↓                   ↓
-Generate Summary        │
-    └────────┬──────────┘
-             ↓
-    Analyze Changes
-             ↓
-    Update Documentation
-    - API docs
-    - Code standards
-    - Architecture
-    - Codebase summary
-             ↓
-    Validate Naming
-             ↓
-    Create Report
-             ↓
-    Save to ./docs/
-```
-
-## Security Architecture
-
-### Security Layers
-
-**Layer 1: Pre-Commit Security**
-- Secret scanning (git-manager agent)
-- Credential detection
-- .gitignore validation
-- Environment file exclusion
-
-**Layer 2: Code Security**
-- Input validation enforcement
-- SQL injection prevention
-- XSS protection patterns
-- OWASP Top 10 awareness
-
-**Layer 3: Agent Security**
-- No logging of sensitive data
-- Sanitized error messages
-- Secure credential handling
-- API key protection
-
-**Layer 4: Communication Security**
-- File system permissions
-- Report sanitization
-- Context isolation
-- Clean handoffs
-
-### Secret Management
-
-**Environment Variables**:
-```
-.env (local, gitignored)
-.env.example (template, committed)
-```
-
-**API Keys**:
-- Never hardcoded
-- Environment variable injection
-- Secure storage systems in production
-
-**Credentials**:
-- Password hashing (bcrypt, argon2)
-- Token-based authentication
-- Secure session management
-
-## Scalability Considerations
-
-### Horizontal Scalability
-
-**Parallel Agent Execution**:
-- Independent researchers run simultaneously
-- No shared state between agents
-- File-based coordination
-- Scalable to N agents
-
-**Workflow Parallelization**:
-- Multiple feature branches
-- Concurrent issue resolution
-- Parallel test execution
-- Independent documentation updates
-
-### Vertical Scalability
-
-**Context Management**:
-- Repomix for code compaction
-- Selective context loading
-- Chunked file processing
-- Efficient token usage
-
-**Performance Optimization**:
-- Lazy loading of skills
-- Cached MCP responses
-- Incremental documentation updates
-- Optimized file I/O
-
-## Deployment Architecture
-
-### Development Environment
-
-```
-Developer Machine
-├── Claude Code CLI
-├── .claude/ (configuration)
-├── Git repository
-└── Node.js runtime
-```
-
-### CI/CD Pipeline
-
-```
-GitHub Repository
-    ↓ Push to main
-GitHub Actions
+SettingsService.save({ extraPhotos: 4 })
     ↓
-Run Tests
+File: userData/settings.json updated
     ↓
-Semantic Release
-    ├─→ Version Bump
-    ├─→ Changelog Generation
-    ├─→ GitHub Release
-    └─→ (Optional) NPM Publish
+IPC Response: { success: true }
+    ↓
+UI updates confirmation feedback
 ```
 
-### Production Usage
+## Photo Selection UI - Detailed Flow
 
+### Component Responsibilities
+1. **PhotoSelectionPanel**
+   - Receives: `capturedPhotos[]`, `frame`, `onConfirm()`
+   - Maintains: `slotAssignments` state (array of photo indices)
+   - Delegates: Grid interaction to PhotoSelectionCapturedGrid, Preview to PhotoSelectionFrameSlots
+   - On confirm: Validates all slots filled, returns selectedPhotoIndices
+
+2. **PhotoSelectionCapturedGrid**
+   - Receives: `capturedPhotos[]`, `slotAssignments`, `onPhotoClick()`
+   - Renders: Scrollable grid of captured photos
+   - Shows: Highlight/visual feedback for assigned photos
+   - Action: Click to assign/unassign
+
+3. **PhotoSelectionFrameSlots**
+   - Receives: `frame.imageCaptures`, `slotAssignments`, `onSlotClick()`
+   - Renders: Preview of frame with N empty slots
+   - Shows: Which slot has which photo
+   - Action: Click to unassign photo from slot
+   - Prevents: Confirmation until all slots filled
+
+### User Interaction Sequence
 ```
-User Project
-├── .claude/ (from template)
-├── docs/ (generated)
-├── plans/ (generated)
-├── src/ (user code)
-└── tests/ (user tests)
+1. User sees N+extra captured photos on left
+2. User clicks photo A → assigns to Slot 1 (visual feedback)
+3. User clicks photo B → assigns to Slot 2
+4. ... repeats until all N slots filled ...
+5. Confirm button becomes enabled
+6. User clicks Confirm → PhotoSelectionPanel.onConfirm()
+7. Screen transitions to processing/compositing
 ```
 
-## Monitoring & Observability
+## Error Handling
 
-### Agent Activity Tracking
+### By Layer
 
-**Logs**:
-- Agent invocations
-- Command executions
-- Workflow progress
-- Error occurrences
+**Main Process**
+- Camera connection failures → graceful fallback (Webcam)
+- IPC handler errors → Promise rejection with error details
+- Settings persistence → fallback to defaults on load failure
 
-**Reports**:
-- Agent communication files
-- Implementation plans
-- Research findings
-- Test results
+**Renderer**
+- Network/IPC failures → user-visible error messages
+- State machine invariant violations → reset to IDLE with notification
+- Photo selection validation → prevent confirm if slots incomplete
 
-**Metrics**:
-- Command execution time
-- Agent success rates
-- Test pass/fail ratios
-- Documentation coverage
-
-### Quality Metrics
-
-**Code Quality**:
-- Test coverage percentage
-- Type safety compliance
-- Linting pass rate
-- Security scan results
-
-**Process Metrics**:
-- Planning to implementation time
-- Code review turnaround
-- Documentation freshness
-- Commit message compliance
-
-## Failure Handling
-
-### Error Recovery Strategies
-
-**Agent Failures**:
-- Graceful degradation
-- Error reporting to user
-- Rollback mechanisms
-- Retry logic for transient errors
-
-**Workflow Failures**:
-- Checkpoint saving
-- Partial progress preservation
-- Clear failure messages
-- Recovery suggestions
-
-**Communication Failures**:
-- File write retries
-- Report validation
-- Missing report detection
-- Timeout handling
-
-## Extension Points
-
-### Adding New Agents
-
-1. Create agent definition file: `.claude/agents/my-agent.md`
-2. Define YAML frontmatter (name, description, mode, model)
-3. Write agent instructions and workflows
-4. Reference in commands or other agents
-
-### Adding New Commands
-
-1. Create command file: `.claude/commands/my-command.md`
-2. Define YAML frontmatter
-3. Write command workflow with agent invocations
-4. Use `$ARGUMENTS` or `$1, $2` for parameters
-
-### Adding New Skills
-
-1. Create skill directory: `.claude/skills/my-skill/`
-2. Write `SKILL.md` with knowledge content
-3. Add references and examples
-4. Reference in agent definitions
-
-### Custom Workflows
-
-1. Define workflow in `.claude/rules/`
-2. Document orchestration patterns
-3. Specify agent handoffs
-4. Provide examples
+**Types/Contracts**
+- TypeScript strict mode prevents type mismatches
+- IPC signatures validated at compile time
+- Settings validated against schema on load
 
 ## Performance Considerations
 
 ### Optimization Strategies
+1. **Component Memoization**: Photo grid items use React.memo to prevent re-renders
+2. **Lazy Loading**: Large photo thumbnails loaded on demand
+3. **Throttled Updates**: Countdown ticker throttled to 100ms intervals
+4. **Buffer Management**: Image data kept in main process, thumbnails only in renderer
 
-**Token Efficiency**:
-- Repomix for codebase compaction
-- Selective context inclusion
-- Efficient prompt engineering
-- Response caching where possible
+### Known Bottlenecks
+- Large photo grids (10+) may cause janky scrolling on low-end hardware
+- IPC serialization overhead for large image buffers (mitigated by using paths vs raw data)
+- Composite generation is CPU-intensive, runs async to prevent UI blocking
 
-**Execution Speed**:
-- Parallel agent spawning
-- Async file operations
-- Lazy skill loading
-- Minimal context switching
+## Security Considerations
 
-**Resource Usage**:
-- File system efficiency
-- Memory management for large files
-- Cleanup of temporary files
-- Optimized git operations
+### IPC Security
+- Preload bridge uses context isolation (no window access)
+- Main process validates all IPC inputs
+- Settings changes require explicit IPC call (no direct file access from renderer)
+- Camera selection limited to known devices only
 
-## Future Architecture Evolution
+### Data Privacy
+- Temporary image files stored in temp directory with cleanup
+- Session data cleared after compositing
+- No telemetry or external API calls (offline-first design)
 
-### Planned Enhancements
+### File System
+- Paths validated before any file operations
+- User data directory scoped to app data folder
+- No arbitrary file read/write from renderer
 
-**Agent Improvements**:
-- Visual workflow builder for agent orchestration
-- Custom agent creator with UI
-- Agent marketplace for community contributions
-- Real-time agent communication (beyond files)
+## Testing Strategy
 
-**Scalability Enhancements**:
-- Distributed agent execution
-- Cloud-based agent orchestration
-- Multi-repository support
-- Large-scale project handling
+### Unit Tests
+- State machine transitions
+- Component prop validation
+- IPC handler input validation
 
-**Integration Expansions**:
-- Additional AI platforms
-- More MCP servers
-- Custom integration framework
-- Enterprise service connectors
+### Integration Tests
+- Full capture session flow
+- Photo selection to processing
+- Settings persistence and reload
 
-## References
+### E2E Tests
+- Camera detection and connection
+- Complete photo booth workflow
+- Settings apply to capture count
 
-### Internal Documentation
-- [Project Overview PDR](./project-overview-pdr.md)
-- [Codebase Summary](./codebase-summary.md)
-- [Code Standards](./code-standards.md)
+## Dependencies Map
 
-### External Resources
-- [Claude Code Documentation](https://docs.claude.com/)
-- [Open Code Documentation](https://opencode.ai/docs)
-- [MCP Documentation](https://modelcontextprotocol.io/)
-- [Semantic Versioning](https://semver.org/)
+```
+External:
+├── electron (main/preload)
+├── react (renderer)
+├── react-router-dom (routing)
+├── typescript (all)
+├── lucide-react (icons)
+└── ffmpeg-cli (compositing)
 
-## Unresolved Questions
+Internal:
+├── src/shared/types (all)
+├── use-capture-session-state-machine (screens)
+├── use-camera-connection (camera screens)
+└── IPC handlers (main ↔ renderer)
+```
 
-1. **Real-Time Collaboration**: How to handle multiple developers using agents simultaneously on same codebase?
-2. **Agent State Management**: Should agents maintain state between invocations beyond file system?
-3. **Distributed Execution**: Architecture for running agents across multiple machines?
-4. **Performance Benchmarking**: What are acceptable latency thresholds for different operation types?
+## Deployment Architecture
+
+### Development
+- Electron dev server with hot reload
+- Webpack bundling for renderer
+- Local camera detection
+
+### Production
+- Asar package for code obfuscation
+- Settings persisted to user data directory
+- Auto-update capability (future)
+
+## Future Enhancements
+
+1. **Multi-Frame Composition**: Support multiple frames in single session
+2. **Real-Time Preview**: Show composite preview before confirmation
+3. **Batch Processing**: Process multiple sessions in queue
+4. **Remote Camera Support**: Network camera support (IP cameras)
+5. **Advanced Retouching**: Built-in filters/effects for photos

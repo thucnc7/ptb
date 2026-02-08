@@ -68,14 +68,12 @@ export function registerSessionIpcHandlers(): void {
   })
 
   // Composite photos into frame
-  ipcMain.handle('session:composite', async (_event, sessionId: string, frame: Frame) => {
+  ipcMain.handle('session:composite', async (_event, sessionId: string, frame: Frame, selectedPhotoIndices?: number[]) => {
     try {
       console.log(`[DEBUG-COMPOSITE] Starting composite for session: ${sessionId}`)
       console.log(`[DEBUG-COMPOSITE] Frame: ${frame.name}, ${frame.width}x${frame.height}`)
       console.log(`[DEBUG-COMPOSITE] Placeholders: ${frame.placeholders.length}`)
-      frame.placeholders.forEach((p, i) => {
-        console.log(`[DEBUG-COMPOSITE]   Placeholder ${i}: x=${p.x}%, y=${p.y}%, w=${p.width}%, h=${p.height}%`)
-      })
+      console.log(`[DEBUG-COMPOSITE] Selected indices: ${selectedPhotoIndices || 'all'}`)
 
       const storageService = getSessionStorageService()
       const compositeService = getImageCompositingService()
@@ -87,17 +85,36 @@ export function registerSessionIpcHandlers(): void {
       }
       console.log(`[DEBUG-COMPOSITE] Session folder: ${session.folderPath}`)
 
-      // Get photo paths from session
-      const photoPaths = await storageService.listPhotos(sessionId)
-      console.log(`[DEBUG-COMPOSITE] Found ${photoPaths.length} photos:`)
-      photoPaths.forEach((p, i) => console.log(`[DEBUG-COMPOSITE]   ${i}: ${p}`))
+      // Get all photo paths from session
+      const allPhotoPaths = await storageService.listPhotos(sessionId)
+      console.log(`[DEBUG-COMPOSITE] Found ${allPhotoPaths.length} total photos`)
 
-      if (photoPaths.length === 0) {
+      if (allPhotoPaths.length === 0) {
         throw new Error('No photos found in session')
       }
 
-      // Build photo inputs
-      const photos = photoPaths.map((imagePath, idx) => ({
+      // Filter by selectedPhotoIndices if provided
+      let photosToUse: string[]
+      if (selectedPhotoIndices && selectedPhotoIndices.length > 0) {
+        // Validate indices are within range
+        const maxIndex = allPhotoPaths.length - 1
+        for (const idx of selectedPhotoIndices) {
+          if (idx < 0 || idx > maxIndex) {
+            throw new Error(`Invalid photo index: ${idx} (valid range: 0-${maxIndex})`)
+          }
+        }
+        photosToUse = selectedPhotoIndices.map(idx => {
+          const filename = `photo-${String(idx).padStart(2, '0')}.jpg`
+          return path.join(session.folderPath, filename)
+        })
+        console.log(`[DEBUG-COMPOSITE] Using ${photosToUse.length} selected photos`)
+      } else {
+        photosToUse = allPhotoPaths
+        console.log(`[DEBUG-COMPOSITE] Using all ${photosToUse.length} photos (no selection)`)
+      }
+
+      // Build photo inputs (index 1-based for compositing service)
+      const photos = photosToUse.map((imagePath, idx) => ({
         index: idx + 1,
         imagePath
       }))

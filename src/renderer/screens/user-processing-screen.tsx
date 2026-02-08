@@ -10,7 +10,7 @@ import { ProcessingScreen } from '../components/processing-screen'
 export function UserProcessingScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { sessionId, frameId, frame } = location.state || {}
+  const { sessionId, frameId, frame, selectedPhotoIndices } = location.state || {}
 
   useEffect(() => {
     if (!sessionId || !frameId || !frame) {
@@ -22,7 +22,7 @@ export function UserProcessingScreen() {
     const processPhotos = async () => {
       try {
         // Call actual compositing API
-        const result = await window.electronAPI.session.composite(sessionId, frame)
+        const result = await window.electronAPI.session.composite(sessionId, frame, selectedPhotoIndices)
 
         if (result.success) {
           // Navigate to result screen

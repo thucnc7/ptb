@@ -2,12 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fredoka (bubbly headings) + Nunito (rounded body) - Vietnamese supported, Gen-Z cute */
+/* Loaded locally via @fontsource packages for Electron CSP compatibility */
+
 /* Photobooth specific styles */
 @layer base {
+  :root {
+    --font-heading: 'Quicksand Variable', 'Nunito Variable', system-ui, sans-serif;
+    --font-body: 'Nunito Variable', system-ui, sans-serif;
+  }
+
   html,
   body {
     @apply bg-gray-900 text-white antialiased;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font-body);
   }
 
   /* Hide scrollbars for fullscreen kiosk mode */

@@ -1,10 +1,12 @@
 /**
  * Admin Settings Screen - Gen-Z Style
  * Hub for admin features: Frame Templates, Camera Test, Google Drive
+ * Camera mode selector: DCC / Webcam / Mock
  */
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { CameraMode } from '../../shared/types/camera-types'
 
 interface SettingCard {
   title: string
@@ -15,35 +17,58 @@ interface SettingCard {
   shadowColor: string
 }
 
+const modeOptions: { mode: CameraMode; label: string; desc: string; icon: string }[] = [
+  { mode: 'dcc', label: 'DCC Camera', desc: 'DSLR via digiCamControl (Windows)', icon: '📷' },
+  { mode: 'webcam', label: 'Webcam', desc: 'Built-in or USB webcam', icon: '🎥' },
+  { mode: 'mock', label: 'Mock', desc: 'UI testing without hardware', icon: '🎭' }
+]
+
 export function AdminSettingsScreen(): JSX.Element {
   const navigate = useNavigate()
-  const [mockCameraMode, setMockCameraMode] = useState(false)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('dcc')
+  const [extraPhotos, setExtraPhotos] = useState(3)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadMockMode()
+    loadCameraMode()
   }, [])
 
-  const loadMockMode = async () => {
+  const loadCameraMode = async () => {
     try {
-      const enabled = await window.electronAPI.camera.getMockMode()
-      setMockCameraMode(enabled)
+      const mode = await window.electronAPI.camera.getMode()
+      setCameraMode(mode)
+      try {
+        const extra = await window.electronAPI.settings.getExtraPhotos()
+        setExtraPhotos(extra)
+      } catch {
+        console.warn('Settings API not available, using default extraPhotos=3')
+      }
     } catch (e) {
-      console.error('Failed to load mock mode:', e)
+      console.error('Failed to load settings:', e)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleToggleMockMode = async () => {
+  const handleSetMode = async (mode: CameraMode) => {
     try {
-      const newValue = !mockCameraMode
-      const result = await window.electronAPI.camera.setMockMode(newValue)
+      const result = await window.electronAPI.camera.setMode(mode)
       if (result.success) {
-        setMockCameraMode(newValue)
+        setCameraMode(mode)
       }
     } catch (e) {
-      console.error('Failed to toggle mock mode:', e)
+      console.error('Failed to set camera mode:', e)
+    }
+  }
+
+  const handleSetExtraPhotos = async (count: number) => {
+    try {
+      const result = await window.electronAPI.settings.setExtraPhotos(count)
+      if (result.success) {
+        setExtraPhotos(count)
+      }
+    } catch (e) {
+      console.error('Failed to set extra photos:', e)
     }
   }
 
@@ -165,41 +190,65 @@ export function AdminSettingsScreen(): JSX.Element {
           ))}
         </div>
 
-        {/* Mock Camera Toggle */}
+        {/* Camera Mode Selector */}
         <div className="mt-8 p-6 bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white mb-1">Mock Camera Mode</h3>
-              <p className="text-slate-400 text-sm">
-                Enable mock camera for UI testing without real hardware 🎭
-              </p>
-            </div>
-            <button
-              onClick={handleToggleMockMode}
-              disabled={loading}
-              className={`relative w-16 h-8 rounded-full transition-all duration-300 cursor-pointer ${
-                mockCameraMode
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500'
-                  : 'bg-slate-700'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div
-                className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg transition-all duration-300 ${
-                  mockCameraMode ? 'right-1' : 'left-1'
-                }`}
-              />
-            </button>
+          <h3 className="text-lg font-bold text-white mb-1">Camera Mode</h3>
+          <p className="text-slate-400 text-sm mb-4">
+            Select camera input source for the photobooth
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {modeOptions.map((opt) => {
+              const isActive = cameraMode === opt.mode
+              return (
+                <button
+                  key={opt.mode}
+                  onClick={() => handleSetMode(opt.mode)}
+                  disabled={loading}
+                  className={`relative p-4 rounded-xl border-2 text-left transition-all duration-300 cursor-pointer ${
+                    isActive
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-white/10 bg-slate-800/50 hover:border-white/30'
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="text-2xl mb-2">{opt.icon}</div>
+                  <div className="font-bold text-white text-sm">{opt.label}</div>
+                  <div className="text-slate-400 text-xs mt-1">{opt.desc}</div>
+                  {isActive && (
+                    <div className="absolute top-3 right-3 w-3 h-3 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50" />
+                  )}
+                </button>
+              )
+            })}
           </div>
-          {mockCameraMode && (
-            <div className="mt-4 px-4 py-3 bg-purple-500/10 border border-purple-500/30 rounded-xl">
-              <p className="text-purple-300 text-sm flex items-center gap-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                Mock camera is active. You can test UI flows without real camera hardware.
-              </p>
-            </div>
-          )}
+        </div>
+
+        {/* Extra Photos Setting */}
+        <div className="mt-6 p-6 bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10">
+          <h3 className="text-lg font-bold text-white mb-1">Extra Photos</h3>
+          <p className="text-slate-400 text-sm mb-4">
+            Extra photos per session for user to choose from
+          </p>
+
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((n) => {
+              const isActive = extraPhotos === n
+              return (
+                <button
+                  key={n}
+                  onClick={() => handleSetExtraPhotos(n)}
+                  disabled={loading}
+                  className={`w-12 h-12 rounded-xl font-bold text-lg transition-all duration-300 cursor-pointer ${
+                    isActive
+                      ? 'bg-purple-500/20 border-2 border-purple-500 text-white'
+                      : 'bg-slate-800/50 border-2 border-white/10 text-slate-400 hover:border-white/30'
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {n}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Version info */}

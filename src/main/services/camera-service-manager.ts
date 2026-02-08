@@ -1,33 +1,58 @@
 /**
  * Camera Service Manager
- * Switches between real camera service and mock camera service
+ * Switches between real camera (DCC), webcam, and mock camera services.
+ * Persists camera mode via electron-store.
  */
 
+import Store from 'electron-store'
 import { CameraService } from './camera-service'
 import { MockCameraService, getMockCameraService } from './mock-camera-service'
+import { WebcamCameraService, getWebcamCameraService } from './webcam-camera-service'
+import type { CameraMode } from '../../shared/types/camera-types'
+
+const store = new Store({ defaults: { cameraMode: 'dcc' as CameraMode } })
 
 class CameraServiceManager {
   private realCamera: CameraService | null = null
-  private mockMode = false
+  private currentMode: CameraMode
 
-  getService(): CameraService | MockCameraService {
-    if (this.mockMode) {
-      return getMockCameraService()
-    }
-
-    if (!this.realCamera) {
-      this.realCamera = new CameraService()
-    }
-    return this.realCamera
+  constructor() {
+    this.currentMode = store.get('cameraMode', 'dcc') as CameraMode
+    console.log(`[CameraServiceManager] Loaded mode: ${this.currentMode}`)
   }
 
+  getService(): CameraService | MockCameraService | WebcamCameraService {
+    switch (this.currentMode) {
+      case 'webcam':
+        return getWebcamCameraService()
+      case 'mock':
+        return getMockCameraService()
+      case 'dcc':
+      default:
+        if (!this.realCamera) {
+          this.realCamera = new CameraService()
+        }
+        return this.realCamera
+    }
+  }
+
+  setMode(mode: CameraMode): void {
+    console.log(`[CameraServiceManager] Mode: ${this.currentMode} -> ${mode}`)
+    this.currentMode = mode
+    store.set('cameraMode', mode)
+  }
+
+  getMode(): CameraMode {
+    return this.currentMode
+  }
+
+  // Backward compat
   setMockMode(enabled: boolean): void {
-    console.log(`[CameraServiceManager] Mock mode: ${enabled ? 'ENABLED' : 'DISABLED'}`)
-    this.mockMode = enabled
+    this.setMode(enabled ? 'mock' : 'dcc')
   }
 
   isMockMode(): boolean {
-    return this.mockMode
+    return this.currentMode === 'mock'
   }
 }
 

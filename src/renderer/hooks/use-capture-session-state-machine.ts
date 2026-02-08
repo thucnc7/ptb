@@ -19,7 +19,6 @@ export function useCaptureSessionStateMachine() {
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const interPhotoTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isRetakingRef = useRef(false)
   const countdownTargetTimeRef = useRef<number>(0)
 
   // Cleanup on unmount
@@ -49,8 +48,8 @@ export function useCaptureSessionStateMachine() {
   }
 
   // Select a frame and start the session
-  const selectFrame = useCallback((frame: Frame) => {
-    dispatch({ type: 'SELECT_FRAME', frame })
+  const selectFrame = useCallback((frame: Frame, extraPhotos: number = 0) => {
+    dispatch({ type: 'SELECT_FRAME', frame, extraPhotos })
   }, [])
 
   // Configure countdown (called from countdown selection screen)
@@ -114,7 +113,6 @@ export function useCaptureSessionStateMachine() {
     // Show preview for a short time, then proceed
     previewTimeoutRef.current = setTimeout(() => {
       dispatch({ type: 'PHOTO_PREVIEW_DONE' })
-      isRetakingRef.current = false
 
       // If auto-sequence and more photos needed, start inter-photo pause
       if (session.autoSequenceEnabled && session.capturedPhotos.length + 1 < session.totalPhotos) {
@@ -156,16 +154,9 @@ export function useCaptureSessionStateMachine() {
     dispatch({ type: 'CANCEL_SESSION' })
   }, [])
 
-  // Retake a specific photo
-  const retakePhoto = useCallback((index: number) => {
-    isRetakingRef.current = true
-    clearAllTimers()
-    dispatch({ type: 'RETAKE_PHOTO', index })
-  }, [])
-
-  // Confirm all photos and proceed to processing
-  const confirmPhotos = useCallback(() => {
-    dispatch({ type: 'CONFIRM_PHOTOS' })
+  // Confirm selected photos and proceed to processing
+  const confirmPhotos = useCallback((selectedPhotoIndices: number[]) => {
+    dispatch({ type: 'CONFIRM_PHOTOS', selectedPhotoIndices })
   }, [])
 
   // Processing complete - move to upload
@@ -189,7 +180,6 @@ export function useCaptureSessionStateMachine() {
   // Reset the session for a new user
   const resetSession = useCallback(() => {
     clearAllTimers()
-    isRetakingRef.current = false
     dispatch({ type: 'RESET_SESSION' })
   }, [])
 
@@ -203,12 +193,10 @@ export function useCaptureSessionStateMachine() {
   const isCountingDown = session.state === 'countdown'
   const isPaused = session.state === 'paused'
   const isInterPhoto = session.state === 'inter-photo'
-  const canRetake = session.state === 'review-all'
   const shotProgress = {
     current: session.currentPhotoIndex + 1,
     total: session.totalPhotos
   }
-  const isRetaking = isRetakingRef.current
 
   return {
     session,
@@ -222,7 +210,6 @@ export function useCaptureSessionStateMachine() {
     pauseSession,
     resumeSession,
     cancelSession,
-    retakePhoto,
     confirmPhotos,
     onProcessingComplete,
     onUploadComplete,
@@ -233,8 +220,6 @@ export function useCaptureSessionStateMachine() {
     isCountingDown,
     isPaused,
     isInterPhoto,
-    canRetake,
-    shotProgress,
-    isRetaking
+    shotProgress
   }
 }

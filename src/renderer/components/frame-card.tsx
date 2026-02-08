@@ -9,8 +9,8 @@ function pathToFileUrl(filePath: string): string {
   if (!filePath) return ''
   const normalizedPath = filePath.replace(/\\/g, '/')
   return normalizedPath.startsWith('/')
-    ? `app://${normalizedPath}`
-    : `app:///${normalizedPath}`
+    ? `file://${normalizedPath}`
+    : `file:///${normalizedPath}`
 }
 
 interface FrameCardProps {
@@ -32,43 +32,70 @@ export function FrameCard({ frame, onEdit, onDelete }: FrameCardProps): JSX.Elem
 
       {/* Card content */}
       <div className="relative bg-slate-900/90 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/10 group-hover:border-transparent transition-all duration-300 hover:transform hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/20">
-        {/* Thumbnail - use actual frame aspect ratio with max height */}
+        {/* Thumbnail - fixed container with centered frame preview */}
         <div
-          className="relative bg-gradient-to-br from-slate-800 to-slate-900 overflow-hidden"
-          style={{
-            aspectRatio: `${frame.width || 1200}/${frame.height || 1800}`,
-            maxHeight: '280px'
-          }}
+          className="relative bg-gradient-to-br from-slate-800 to-slate-900 overflow-hidden flex items-center justify-center"
+          style={{ aspectRatio: '4/5' }}
         >
-          {frame.backgroundPath ? (
-            <img
-              src={pathToFileUrl(frame.backgroundPath)}
-              alt={frame.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="text-center">
-                <svg
-                  className="w-12 h-12 mx-auto text-slate-600 mb-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <span className="text-slate-500 text-sm">No preview</span>
+          {/* Inner frame preview - keeps real aspect ratio, centered */}
+          <div
+            className="relative h-full"
+            style={{
+              aspectRatio: `${frame.width || 1200}/${frame.height || 1800}`,
+              maxWidth: '100%'
+            }}
+          >
+            {frame.backgroundPath ? (
+              <img
+                src={pathToFileUrl(frame.backgroundPath)}
+                alt={frame.name}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center">
+                  <svg
+                    className="w-12 h-12 mx-auto text-slate-600 mb-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <span className="text-slate-500 text-sm">No preview</span>
+                </div>
               </div>
+            )}
+
+            {/* Placeholder overlay indicators - relative to frame image */}
+            <div className="absolute inset-0 pointer-events-none">
+              {frame.placeholders.map((ph, i) => (
+                <div
+                  key={ph.id}
+                  className="absolute border-2 border-white/40 bg-white/10 backdrop-blur-[1px] flex items-center justify-center text-white text-xs font-bold rounded-sm"
+                  style={{
+                    left: `${ph.x}%`,
+                    top: `${ph.y}%`,
+                    width: `${ph.width}%`,
+                    height: `${ph.height}%`,
+                    transform: `rotate(${ph.rotation}deg)`
+                  }}
+                >
+                  <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px]">
+                    {i + 1}
+                  </span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60 pointer-events-none" />
 
           {/* Photo count badge - pill style */}
           <div className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full text-white text-xs font-bold shadow-lg">
@@ -76,27 +103,6 @@ export function FrameCard({ frame, onEdit, onDelete }: FrameCardProps): JSX.Elem
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             {frame.imageCaptures}
-          </div>
-
-          {/* Placeholder overlay indicators */}
-          <div className="absolute inset-0 pointer-events-none">
-            {frame.placeholders.map((ph, i) => (
-              <div
-                key={ph.id}
-                className="absolute border-2 border-white/40 bg-white/10 backdrop-blur-[1px] flex items-center justify-center text-white text-xs font-bold rounded-sm"
-                style={{
-                  left: `${ph.x}%`,
-                  top: `${ph.y}%`,
-                  width: `${ph.width}%`,
-                  height: `${ph.height}%`,
-                  transform: `rotate(${ph.rotation}deg)`
-                }}
-              >
-                <span className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px]">
-                  {i + 1}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
 

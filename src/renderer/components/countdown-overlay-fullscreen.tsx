@@ -17,59 +17,53 @@ export function CountdownOverlayFullscreen({ value }: CountdownProps) {
   const colors = getColor(value)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
-      {/* Pulsing background glow */}
-      <div
-        key={`bg-${value}`}
-        className="absolute inset-0 flex items-center justify-center"
-        style={{
-          animation: 'countdown-glow-pulse 0.8s ease-out'
-        }}
-      >
+    <div className="fixed inset-0 z-50 pointer-events-none">
+      {/* Corner countdown - top right */}
+      <div className="absolute top-8 right-8 flex items-center justify-center">
+        {/* Glow behind number */}
         <div
-          className="w-[600px] h-[600px] rounded-full blur-3xl"
+          key={`glow-${value}`}
+          className="absolute w-40 h-40 rounded-full blur-2xl"
           style={{
-            background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`
+            background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
+            animation: 'countdown-glow-pulse 0.8s ease-out'
           }}
         />
-      </div>
 
-      {/* Main countdown number */}
-      <div
-        key={value} // Re-animate on value change
-        className="relative text-[25rem] font-black drop-shadow-[0_0_50px_rgba(0,0,0,0.8)] font-mono leading-none"
-        style={{
-          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: `0 0 80px ${colors.glow}, 0 0 120px ${colors.glow}`,
-          animation: 'countdown-pop-scale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
-        }}
-      >
-        {value}
-      </div>
-
-      {/* Ripple rings */}
-      <div
-        key={`ring-${value}`}
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-      >
+        {/* Glass pill container */}
         <div
-          className="absolute rounded-full"
+          key={`pill-${value}`}
+          className="relative w-32 h-32 rounded-3xl flex items-center justify-center"
           style={{
-            width: '300px',
-            height: '300px',
-            border: `4px solid ${colors.primary}`,
-            animation: 'countdown-ripple 0.8s ease-out'
+            background: 'rgba(0, 0, 0, 0.35)',
+            backdropFilter: 'blur(12px)',
+            border: `2px solid ${colors.primary}`,
+            boxShadow: `0 0 30px ${colors.glow}, inset 0 0 20px rgba(0,0,0,0.2)`,
+            animation: 'countdown-pop-scale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
           }}
-        />
+        >
+          <span
+            className="text-8xl font-black font-mono leading-none"
+            style={{
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: `drop-shadow(0 0 20px ${colors.glow})`
+            }}
+          >
+            {value}
+          </span>
+        </div>
+
+        {/* Ripple ring */}
         <div
-          className="absolute rounded-full"
+          key={`ring-${value}`}
+          className="absolute rounded-3xl"
           style={{
-            width: '300px',
-            height: '300px',
-            border: `4px solid ${colors.secondary}`,
-            animation: 'countdown-ripple 0.8s ease-out 0.15s'
+            width: '128px',
+            height: '128px',
+            border: `3px solid ${colors.primary}`,
+            animation: 'countdown-ripple-corner 0.8s ease-out'
           }}
         />
       </div>
@@ -195,9 +189,9 @@ export function CaptureFlashEffect({ active }: FlashProps) {
           100% { opacity: 0.6; transform: scale(1); }
         }
 
-        @keyframes countdown-ripple {
-          0% { transform: scale(0.8); opacity: 0.8; }
-          100% { transform: scale(2.5); opacity: 0; }
+        @keyframes countdown-ripple-corner {
+          0% { transform: scale(0.9); opacity: 0.8; }
+          100% { transform: scale(1.8); opacity: 0; }
         }
       `}</style>
     </>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type {
   CameraInfo,
+  CameraMode,
   CameraStatus,
   CaptureResult,
   CameraConnectionState
@@ -16,10 +17,12 @@ export function useCameraConnection() {
   const [connectionState, setConnectionState] =
     useState<CameraConnectionState>('disconnected')
   const [cameras, setCameras] = useState<CameraInfo[]>([])
+  const [cameraMode, setCameraMode] = useState<CameraMode>('dcc')
 
-  // Load camera status on mount
+  // Load camera status and mode on mount
   useEffect(() => {
     loadStatus()
+    window.electronAPI.camera.getMode().then(setCameraMode).catch(console.error)
   }, [])
 
   // Poll status every 5 seconds when connected to detect disconnects
@@ -33,8 +36,10 @@ export function useCameraConnection() {
     return () => clearInterval(interval)
   }, [status.connected])
 
-  // Listen to DCC state changes and auto-update when DCC goes offline
+  // Listen to DCC state changes - only relevant when in DCC mode
   useEffect(() => {
+    if (cameraMode !== 'dcc') return
+
     const unsubscribe = window.electronAPI.camera.onDccStateChanged(({ newState }) => {
       if (newState === 'offline' || newState === 'failed') {
         console.log('DCC went offline, updating camera status')
@@ -49,7 +54,7 @@ export function useCameraConnection() {
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [cameraMode])
 
   const loadStatus = async () => {
     try {
@@ -136,15 +141,26 @@ export function useCameraConnection() {
     }
   }, [])
 
+  const webcamCapture = useCallback(async (imageDataUrl: string): Promise<CaptureResult> => {
+    try {
+      return await window.electronAPI.camera.webcamCapture(imageDataUrl)
+    } catch (error) {
+      setStatus((prev) => ({ ...prev, error: String(error) }))
+      throw error
+    }
+  }, [])
+
   return {
     status,
     connectionState,
     cameras,
+    cameraMode,
     refreshCameras,
     connect,
     disconnect,
     startLiveView,
     stopLiveView,
-    capture
+    capture,
+    webcamCapture
   }
 }

@@ -1,7 +1,7 @@
 /**
- * Home Screen - Gen-Z Vibrant Design
- * Main landing page with "Start Event" as primary CTA
- * Settings icon for admin access
+ * Home Screen - "Polaroid Dream" Design
+ * Warm neo-kawaii aesthetic with floating polaroid shapes
+ * Signature: stacked title, gummy CTA, film-themed decorations
  */
 
 import { useNavigate } from 'react-router-dom'
@@ -16,161 +16,175 @@ export function HomeScreen(): JSX.Element {
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Floating gradient orbs */}
-        <div
-          className="absolute top-20 left-10 w-72 h-72 bg-purple-500/30 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '3s' }}
-        />
-        <div
-          className="absolute bottom-20 right-10 w-96 h-96 bg-pink-500/25 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '4s', animationDelay: '1s' }}
-        />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '5s', animationDelay: '0.5s' }}
-        />
-
-        {/* Floating shapes */}
-        <div className="absolute top-32 right-32 w-4 h-4 bg-yellow-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-        <div className="absolute bottom-40 left-40 w-3 h-3 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.8s' }} />
-        <div className="absolute bottom-1/3 left-1/4 w-5 h-5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '1s' }} />
+    <div
+      className="min-h-screen relative overflow-hidden"
+      style={{ background: 'linear-gradient(145deg, #1a1035 0%, #0f0a1e 40%, #1a0f2e 70%, #120d20 100%)' }}
+    >
+      {/* Mesh gradient atmosphere */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[120px]" style={{ background: 'rgba(251, 146, 60, 0.12)' }} />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full blur-[100px]" style={{ background: 'rgba(196, 181, 253, 0.10)' }} />
+        <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full blur-[80px]" style={{ background: 'rgba(252, 165, 165, 0.08)' }} />
       </div>
 
-      {/* Settings button - top right */}
+      {/* Floating polaroid shapes */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Polaroid 1 - top left */}
+        <div
+          className="absolute w-28 h-36 rounded-md border border-white/[0.07] bg-white/[0.03]"
+          style={{ top: '8%', left: '8%', transform: 'rotate(-12deg)', animation: 'home-float 8s ease-in-out infinite' }}
+        >
+          <div className="m-2 h-20 rounded-sm bg-white/[0.05]" />
+        </div>
+        {/* Polaroid 2 - top right */}
+        <div
+          className="absolute w-24 h-32 rounded-md border border-white/[0.06] bg-white/[0.02]"
+          style={{ top: '12%', right: '12%', transform: 'rotate(8deg)', animation: 'home-float 10s ease-in-out infinite 1s' }}
+        >
+          <div className="m-2 h-16 rounded-sm bg-white/[0.04]" />
+        </div>
+        {/* Polaroid 3 - bottom left */}
+        <div
+          className="absolute w-20 h-28 rounded-md border border-white/[0.05] bg-white/[0.02]"
+          style={{ bottom: '15%', left: '15%', transform: 'rotate(15deg)', animation: 'home-float 9s ease-in-out infinite 2s' }}
+        >
+          <div className="m-1.5 h-14 rounded-sm bg-white/[0.04]" />
+        </div>
+        {/* Polaroid 4 - bottom right */}
+        <div
+          className="absolute w-32 h-40 rounded-md border border-white/[0.06] bg-white/[0.02]"
+          style={{ bottom: '8%', right: '6%', transform: 'rotate(-6deg)', animation: 'home-float 11s ease-in-out infinite 0.5s' }}
+        >
+          <div className="m-2 h-24 rounded-sm bg-white/[0.04]" />
+        </div>
+
+        {/* Star decorations */}
+        <div className="absolute text-amber-300/40 text-2xl" style={{ top: '20%', left: '25%', animation: 'home-twinkle 3s ease-in-out infinite' }}>✦</div>
+        <div className="absolute text-rose-300/30 text-lg" style={{ top: '35%', right: '20%', animation: 'home-twinkle 4s ease-in-out infinite 1s' }}>✦</div>
+        <div className="absolute text-violet-300/35 text-xl" style={{ bottom: '30%', left: '30%', animation: 'home-twinkle 3.5s ease-in-out infinite 0.5s' }}>✦</div>
+        <div className="absolute text-amber-200/25 text-sm" style={{ top: '60%', right: '30%', animation: 'home-twinkle 5s ease-in-out infinite 2s' }}>✦</div>
+      </div>
+
+      {/* Settings - subtle top right */}
       <button
         onClick={() => navigate('/admin/settings')}
-        className="absolute top-6 right-6 z-20 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl border border-white/10 transition-all duration-300 hover:scale-110 cursor-pointer group"
+        className="absolute top-5 right-5 z-20 p-2.5 rounded-xl text-white/20 hover:text-white/60 hover:bg-white/5 transition-all duration-300 cursor-pointer"
         title="Settings"
       >
-        <svg
-          className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors group-hover:rotate-90 duration-300"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-          />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-          />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       </button>
 
       {/* Main content */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-8">
-        {/* Logo/Title section */}
-        <div
-          className={`text-center mb-12 transition-all duration-1000 ${
-            mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10'
-          }`}
-        >
-          {/* Camera icon */}
-          <div className="relative inline-block mb-6">
-            <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-purple-500/30">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            {/* Sparkle decorations */}
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-ping" />
-            <div className="absolute -bottom-1 -left-2 w-3 h-3 bg-cyan-400 rounded-full animate-ping" style={{ animationDelay: '0.5s' }} />
+        {/* Stacked title - signature element */}
+        <div className={`text-center mb-14 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8'}`}>
+          {/* Film strip icon */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.08] mb-8">
+            <span className="text-amber-300 text-sm">✦</span>
+            <span className="text-white/40 text-xs font-medium tracking-widest uppercase">say cheese</span>
+            <span className="text-rose-300 text-sm">✦</span>
           </div>
 
-          <h1 className="text-6xl md:text-7xl font-black bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-4">
-            PHOTOBOOTH
-          </h1>
-          <p className="text-xl text-slate-400 font-medium">
+          {/* Title: PHOTO on top, BOOTH below - different weights & colors */}
+          <div className="leading-none">
+            <h1
+              className="text-[5.5rem] md:text-[7rem] font-black tracking-tight"
+              style={{
+                fontFamily: 'var(--font-heading), system-ui, sans-serif',
+                background: 'linear-gradient(135deg, #fca5a5 0%, #fb923c 50%, #fcd34d 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 40px rgba(251, 146, 60, 0.2))'
+              }}
+            >
+              PHOTO
+            </h1>
+            <h1
+              className="text-[5.5rem] md:text-[7rem] font-black tracking-tight -mt-4"
+              style={{
+                fontFamily: 'var(--font-heading), system-ui, sans-serif',
+                background: 'linear-gradient(135deg, #c4b5fd 0%, #a78bfa 50%, #818cf8 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                filter: 'drop-shadow(0 0 40px rgba(167, 139, 250, 0.2))'
+              }}
+            >
+              BOOTH
+            </h1>
+          </div>
+
+          <p className="text-white/30 text-lg mt-4 font-light tracking-wide">
             Capture moments, share memories
           </p>
         </div>
 
-        {/* Main CTA - Start Event */}
-        <div
-          className={`transition-all duration-1000 delay-300 ${
-            mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-          }`}
-        >
+        {/* Gummy CTA button - 3D depth effect */}
+        <div className={`transition-all duration-1000 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
           <button
             onClick={() => navigate('/user/select-frame')}
             className="group relative cursor-pointer"
           >
-            {/* Glow effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 rounded-3xl blur-lg opacity-70 group-hover:opacity-100 transition-all duration-300 animate-pulse" />
+            {/* Soft glow */}
+            <div
+              className="absolute -inset-3 rounded-[2rem] blur-2xl opacity-50 group-hover:opacity-80 transition-all duration-500"
+              style={{ background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.4), rgba(167, 139, 250, 0.4))' }}
+            />
 
-            {/* Button content */}
-            <div className="relative flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 rounded-2xl text-white font-bold text-2xl shadow-2xl shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all duration-300 group-hover:scale-105">
-              <svg className="w-8 h-8 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Start Event</span>
-              <svg
-                className="w-6 h-6 transform group-hover:translate-x-2 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+            {/* Button body - gummy/jelly feel with inner shadow */}
+            <div
+              className="relative flex items-center gap-5 px-14 py-7 rounded-[1.5rem] text-white font-bold text-2xl group-hover:scale-[1.03] active:scale-[0.98] transition-all duration-200"
+              style={{
+                fontFamily: 'var(--font-heading), system-ui, sans-serif',
+                background: 'linear-gradient(145deg, #f97316 0%, #e879a0 40%, #a78bfa 100%)',
+                boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.25), inset 0 -4px 8px rgba(0,0,0,0.15), 0 8px 30px rgba(249, 115, 22, 0.25), 0 4px 15px rgba(167, 139, 250, 0.2)'
+              }}
+            >
+              <span className="text-2xl">📸</span>
+              <span className="tracking-wide">Bắt đầu chụp</span>
+              <svg className="w-5 h-5 opacity-60 group-hover:translate-x-1 group-hover:opacity-100 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </div>
           </button>
         </div>
 
-        {/* Features hint */}
-        <div
-          className={`mt-16 flex items-center gap-8 text-slate-500 transition-all duration-1000 delay-500 ${
-            mounted ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-            </svg>
-            <span className="text-sm">Auto Upload</span>
-          </div>
-          <div className="w-1 h-1 bg-slate-600 rounded-full" />
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-            <span className="text-sm">QR Code</span>
-          </div>
-          <div className="w-1 h-1 bg-slate-600 rounded-full" />
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm">Custom Frames</span>
-          </div>
+        {/* Feature chips - cute badge style */}
+        <div className={`mt-16 flex flex-wrap items-center justify-center gap-3 transition-all duration-1000 delay-500 ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+          {[
+            { icon: '☁️', label: 'Auto Upload', color: 'text-amber-300/60' },
+            { icon: '📱', label: 'QR Code', color: 'text-violet-300/60' },
+            { icon: '🖼️', label: 'Custom Frames', color: 'text-rose-300/60' }
+          ].map((f) => (
+            <div
+              key={f.label}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.06]"
+            >
+              <span className="text-sm">{f.icon}</span>
+              <span className={`text-xs font-medium ${f.color}`}>{f.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Footer hint */}
-      <div className="absolute bottom-6 left-0 right-0 text-center text-slate-600 text-sm">
-        Press <kbd className="px-2 py-1 bg-slate-800 rounded text-slate-400 font-mono">F11</kbd> for fullscreen
+      {/* Footer */}
+      <div className="absolute bottom-5 left-0 right-0 text-center text-white/15 text-xs">
+        Press <kbd className="px-1.5 py-0.5 bg-white/5 rounded text-white/25 font-mono text-[10px]">F11</kbd> for fullscreen
       </div>
+
+      {/* Inline keyframes */}
+      <style>{`
+        @keyframes home-float {
+          0%, 100% { transform: translateY(0) rotate(var(--tw-rotate, 0deg)); }
+          50% { transform: translateY(-12px) rotate(var(--tw-rotate, 0deg)); }
+        }
+        @keyframes home-twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.3); }
+        }
+      `}</style>
     </div>
   )
 }

@@ -34,3 +34,13 @@ export type CameraConnectionState =
   | 'error'
 
 export type LiveViewState = 'stopped' | 'starting' | 'streaming' | 'error'
+
+// Camera mode selection
+export type CameraMode = 'dcc' | 'webcam' | 'mock'
+
+// Webcam device info (mirrors MediaDeviceInfo subset)
+export interface WebcamDevice {
+  deviceId: string
+  label: string
+  groupId: string
+}

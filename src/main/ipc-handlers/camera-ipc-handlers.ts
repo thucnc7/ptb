@@ -1,6 +1,8 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { getCameraService, getCameraServiceManager } from '../services/camera-service-manager'
 import { getDccProcessMonitor } from '../services/dcc-process-monitor-service'
+import { getWebcamCameraService } from '../services/webcam-camera-service'
+import type { CameraMode } from '../../shared/types/camera-types'
 
 export function registerCameraIpcHandlers(): void {
   // --- digiCamControl Handlers ---
@@ -132,16 +134,34 @@ export function registerCameraIpcHandlers(): void {
     getDccProcessMonitor().manualRetry()
   })
 
-  // --- Mock Camera Handlers ---
+  // --- Mock Camera Handlers (backward compat) ---
 
-  // Enable/disable mock camera mode
   ipcMain.handle('camera:set-mock-mode', (_event, enabled: boolean) => {
     getCameraServiceManager().setMockMode(enabled)
     return { success: true, mockMode: enabled }
   })
 
-  // Get current mock mode status
   ipcMain.handle('camera:get-mock-mode', () => {
     return getCameraServiceManager().isMockMode()
+  })
+
+  // --- Camera Mode Handlers ---
+
+  ipcMain.handle('camera:set-mode', (_event, mode: CameraMode) => {
+    getCameraServiceManager().setMode(mode)
+    return { success: true, mode }
+  })
+
+  ipcMain.handle('camera:get-mode', () => {
+    return getCameraServiceManager().getMode()
+  })
+
+  // Webcam capture: receive base64 from renderer, save to disk
+  ipcMain.handle('camera:webcam-capture', async (_event, imageDataUrl: string) => {
+    const manager = getCameraServiceManager()
+    if (manager.getMode() !== 'webcam') {
+      throw new Error('Webcam capture only available in webcam mode')
+    }
+    return await getWebcamCameraService().capture(imageDataUrl)
   })
 }

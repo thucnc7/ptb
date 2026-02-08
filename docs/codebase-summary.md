@@ -1,365 +1,564 @@
-# Codebase Summary
+# Photo Booth - Codebase Summary
 
-**Last Updated**: 2026-01-28
-**Version**: 2.9.0-beta.2
-**Repository**: [claudekit/claudekit-engineer](https://github.com/claudekit/claudekit-engineer)
+**Last Updated**: 2026-02-07
+**Version**: 0.1.0-beta
+**Repository**: Local Project (PTB)
 
 ## Overview
 
-ClaudeKit Engineer is a comprehensive boilerplate template for building professional software projects with CLI Coding Agents (Claude Code and Open Code). It provides a complete development environment with AI-powered agent orchestration, automated workflows, and intelligent project management.
+Photo Booth is an Electron + React + TypeScript application for interactive photo capture with frame templates. Users select a frame, capture photos (N + configurable extras), manually select best N photos via UI, and generate composites with optional QR codes.
 
 ## Project Structure
 
 ```
-claudekit-engineer/
-├── .claude/               # Claude Code configuration
-│   ├── agents/           # Specialized agent definitions (14 agents)
-│   ├── commands/         # Slash command implementations (50+ commands)
-│   ├── hooks/            # Git hooks and scripts
-│   ├── skills/           # Specialized skills library (20+ skills)
-│   └── workflows/        # Development workflow definitions
-├── .github/             # GitHub Actions workflows
-│   └── workflows/       # CI/CD automation
-├── docs/                # Project documentation
-│   └── research/        # Research reports directory
-├── guide/               # User guides and references
-├── plans/               # Implementation plans and reports
-│   ├── reports/         # Agent-to-agent communication
-│   └── templates/       # Plan templates
-├── CLAUDE.md           # Project-specific Claude instructions
-├── README.md           # Project overview
-├── package.json        # Node.js dependencies
-└── repomix-output.xml  # Codebase compaction file
+ptb/
+├── src/
+│   ├── main/                           # Electron main process
+│   │   ├── index.ts                    # App entry, window setup
+│   │   ├── ipc-handlers/
+│   │   │   ├── camera-ipc-handlers.ts      # Camera operations (connect, capture, getStatus)
+│   │   │   ├── session-ipc-handlers.ts     # Session management (create, capturePhoto, confirmPhotos)
+│   │   │   └── settings-ipc-handlers.ts    # NEW: App settings (get, set, reset)
+│   │   └── services/
+│   │       ├── camera-service-manager.ts   # Multi-camera abstraction (Canon, Webcam, Mock)
+│   │       └── webcam-camera-service.ts    # NEW: Webcam-specific implementation
+│   ├── renderer/                       # React UI
+│   │   ├── components/
+│   │   │   ├── photo-selection-panel.tsx           # NEW: Main orchestrator (40/60 split)
+│   │   │   ├── photo-selection-captured-grid.tsx   # NEW: Left grid of captured photos
+│   │   │   ├── photo-selection-frame-slots.tsx     # NEW: Right preview with frame slots
+│   │   │   ├── countdown-overlay-fullscreen.tsx    # Countdown + flash effect
+│   │   │   ├── frame-card.tsx                      # Frame template preview
+│   │   │   ├── dcc-live-view.tsx                   # Canon camera preview
+│   │   │   └── webcam-live-view.tsx                # NEW: Webcam preview
+│   │   ├── hooks/
+│   │   │   ├── use-capture-session-state-machine.ts  # Session orchestration (IDLE → COMPLETE)
+│   │   │   ├── use-camera-connection.ts             # Camera lifecycle management
+│   │   │   └── use-audio-feedback.ts                # Sound effects (countdown, shutter, success)
+│   │   ├── screens/
+│   │   │   ├── home-screen.tsx                    # Frame selection entry
+│   │   │   ├── user-capture-screen.tsx            # Live preview + manual capture
+│   │   │   ├── user-capture-session-screen.tsx    # Orchestrates capture + photo selection
+│   │   │   ├── user-processing-screen.tsx         # Composite generation progress
+│   │   │   ├── admin-settings-screen.tsx          # Settings UI (NEW: Extra Photos slider)
+│   │   │   └── admin-camera-test-screen.tsx       # Camera testing/diagnostics
+│   │   ├── styles/
+│   │   │   └── global-styles.css                  # Global Tailwind + custom styles
+│   │   └── main.tsx                                # React entry + Router config
+│   ├── preload/
+│   │   └── preload.ts                  # IPC bridge (updated with settings namespace)
+│   ├── shared/
+│   │   └── types/
+│   │       ├── session-types.ts        # CapturedPhoto, SessionState interfaces
+│   │       ├── frame-types.ts          # Frame, FrameTemplate interfaces
+│   │       ├── camera-types.ts         # CameraSettings, CameraDevice (UPDATED)
+│   │       └── countdown-types.ts      # CountdownConfig interface
+│   └── [source files continued...]
+├── docs/
+│   ├── project-overview-pdr.md         # Project goals, features, PDR
+│   ├── system-architecture.md          # Architecture, components, data flow
+│   ├── codebase-summary.md            # This file
+│   ├── code-standards.md               # Coding patterns and conventions
+│   └── project-roadmap.md              # Development phases and milestones
+├── package.json                        # Dependencies (Electron 28+, React 18+, TypeScript 5+)
+├── electron.vite.config.ts             # Electron + Vite configuration
+├── tsconfig.json                       # TypeScript strict mode enabled
+├── vite.config.ts                      # Vite bundler config
+└── repomix-output.xml                  # Codebase compaction file
 ```
 
-## Core Technologies
+## Key Components & Modules
 
-### Runtime & Dependencies
-- **Node.js**: >=18.0.0
-- **Package Manager**: npm
-- **License**: MIT
+### 1. Main Process (Electron)
 
-### Development Tools
-- **Semantic Release**: Automated versioning and changelog
-- **Commitlint**: Conventional commit enforcement
-- **Husky**: Git hooks automation
-- **Repomix**: Codebase compaction for AI consumption
+#### Entry Point: `src/main/index.ts`
+- **Purpose**: Electron app initialization and window management
+- **Responsibilities**:
+  - Create main BrowserWindow
+  - Register IPC handlers (camera, session, settings)
+  - Handle app lifecycle (ready, quit, activate)
+  - Load renderer in dev/prod modes
 
-### CI/CD
-- **GitHub Actions**: Automated release workflow
-- **Semantic Versioning**: Automated version management
-- **Conventional Commits**: Structured commit messages
+**Key Functions**:
+- `createWindow()` - Setup and show main window
+- `app.on('ready')` - Initialize app
+- Handler registration loop for all IPC namespaces
 
-## Key Components
+#### Camera IPC Handler: `src/main/ipc-handlers/camera-ipc-handlers.ts`
+- **Namespace**: `camera:`
+- **Exposes**:
+  - `camera:connect(type: 'canon' | 'webcam')` - Connect to camera
+  - `camera:capture()` - Trigger photo capture
+  - `camera:getStatus()` - Get camera connection status
+  - `camera:disconnect()` - Release camera resources
 
-### 1. Agent Orchestration System (14 Agents)
+**Flow**: Calls → CameraServiceManager → Returns Promise
 
-**Claude Code Agents** (`.claude/agents/`):
-- `planner.md` - Technical planning and architecture (Opus model)
-- `researcher.md` - Research and analysis
-- `fullstack-developer.md` - Full-stack implementation
-- `code-reviewer.md` - Code quality assessment
-- `tester.md` - Testing and validation
-- `debugger.md` - Issue analysis and debugging
-- `docs-manager.md` - Documentation management (Gemini model)
-- `git-manager.md` - Version control operations
-- `journal-writer.md` - Development journaling
-- `brainstormer.md` - Solution ideation
-- `project-manager.md` - Project tracking
-- `ui-ux-designer.md` - UI/UX design
-- `mcp-manager.md` - MCP server management
-- `code-simplifier.md` - Code optimization and simplification
+#### Session IPC Handler: `src/main/ipc-handlers/session-ipc-handlers.ts`
+- **Namespace**: `session:`
+- **Exposes**:
+  - `session:create(frameId)` - Initialize new capture session
+  - `session:capturePhoto(photoIndex, buffer)` - Record photo
+  - `session:confirmPhotos(selectedIndices)` - Mark photos for processing
+  - `session:getSession()` - Retrieve session state
+  - `session:reset()` - Clear session
 
-### 2. Slash Commands System (Command Directories)
-
-**Core Development Commands**:
-- `/plan` - Research and planning
-- `/cook` - Feature implementation
-- `/test` - Test execution
-- `/ask` - Technical consultation
-- `/bootstrap` - Project initialization
-- `/brainstorm` - Solution ideation
-- `/debug` - Issue debugging
-- `/fix` - Bug fixes
-
-**Command Directories** (`.claude/commands/`):
-- `bootstrap/` - Project initialization workflows
-- `docs/` - Documentation commands
-- `plan/` - Planning variants
-- `review/` - Code review workflows
-- `test/` - Testing commands
-
-### 3. Skills Library (38 Skills)
-
-**Phase 1 Organized Groups** (Progressive Disclosure):
-- **DevOps** (`devops/`) - Cloudflare (5 skills), Docker, Google Cloud Platform
-  - 11 references, 2 Python utilities, 45 tests
-- **Databases** (`databases/`) - MongoDB, PostgreSQL
-  - 8 references, 3 Python utilities
-- **Web Frameworks** (`web-frameworks/`) - Next.js, Turborepo, RemixIcon
-  - 7 references, 2 Python utilities
-- **UI Styling** (`ui-styling/`) - shadcn/ui, Tailwind CSS, canvas-design
-  - 7 references, 2 Python utilities
-
-**Current Skills** (47+ Total):
-- ai-artist, ai-multimodal, agent-browser, backend-development, better-auth
-- brainstorm, chrome-devtools, code-review, common, context-engineering
-- cook, copywriting, databases, debug, devops
-- docs-seeker, document-skills, find-skills, frontend-design, frontend-development
-- git, gkg, google-adk-python, markdown-novel-viewer, mcp-builder
-- mcp-management, media-processing, mermaidjs-v11, mobile-development, payment-integration
-- planning, plans-kanban, problem-solving, react-best-practices, remotion
-- repomix, research, scout, sequential-thinking, shader
-- shopify, skill-creator, template-skill, threejs, ui-styling
-- ui-ux-pro-max, web-design-guidelines, web-frameworks, web-testing
-
-### 4. Hook System (8 Core Hooks)
-
-**Location**: `.claude/hooks/`
-
-**Core Hooks:**
-
-1. **session-init.cjs** - Session Initialization
-   - Detects project type (monorepo/library)
-   - Identifies package manager (pnpm/npm/yarn)
-   - Detects framework (Next/React/etc)
-   - Writes 25+ environment variables for context cascade
-
-2. **dev-rules-reminder.cjs** - Development Context Injection
-   - Injects dev rules & context on every prompt
-   - Smart deduplication prevents redundancy
-   - Provides branch-matched workflow suggestions
-   - Optimized for token efficiency
-
-3. **subagent-init.cjs** - Subagent Context Injection
-   - Injects compact context (~200 tokens) when spawning subagents
-   - Minimizes token overhead during delegation
-   - Enables efficient agent-to-agent communication
-
-4. **scout-block.cjs** - Cross-Platform Performance Optimization
-   - Blocks access to heavy directories (node_modules, .git, __pycache__, dist/, build/)
-   - Node.js dispatcher with platform-specific implementations
-   - Unix (Bash): scout-block.sh
-   - Windows (PowerShell): scout-block.ps1
-   - Automatic platform detection via `process.platform`
-   - Improves AI response time and token efficiency
-
-5. **privacy-block.cjs** - Sensitive File Access Control
-6. **descriptive-name.cjs** - Naming conventions enforcement
-7. **post-edit-simplify-reminder.cjs** - Post-edit optimization hints
-8. **usage-context-awareness.cjs** - Context-aware usage patterns
-
-**Hook Features:**
-- Fail-Safe: All hooks exit 0 (non-blocking) - graceful degradation
-- Performance: Optimized token consumption
-- Cross-Platform: Windows (PowerShell) & Unix (Bash) via Node.js dispatcher
-- Comprehensive Test Coverage: test-scout-block.sh (11 tests), test-scout-block.ps1 (7 tests)
-
-### 5. Workflows
-
-**Primary Workflows** (`.claude/rules/`):
-1. **primary-workflow.md**: Core development cycle
-   - Code implementation
-   - Testing
-   - Code quality
-   - Integration
-   - Debugging
-
-2. **orchestration-protocol.md**: Agent coordination patterns
-   - Sequential chaining
-   - Parallel execution
-
-3. **development-rules.md**: Development standards
-   - File size management (<500 lines)
-   - YAGNI, KISS, DRY principles
-   - Code quality guidelines
-   - Pre-commit/push rules
-
-4. **documentation-management.md**: Doc maintenance
-   - Roadmap and changelog updates
-   - Automatic update triggers
-   - Documentation protocols
-
-## Entry Points
-
-### For Users
-- **README.md**: Project overview and quick start
-- **guide/COMMANDS.md**: Comprehensive command reference (7,073 tokens)
-- **CLAUDE.md**: Development instructions and workflows
-
-### For Developers
-- **package.json**: Dependencies and scripts
-- **.releaserc.json**: Semantic release configuration
-- **.commitlintrc.json**: Commit message linting rules
-- **.gitignore**: Version control exclusions
-
-### For Agents
-- **CLAUDE.md**: Primary agent instructions
-- **.claude/rules/**: Development rules and protocols
-- **plans/templates/**: Implementation plan templates
-
-## Development Principles
-
-### YAGNI (You Aren't Gonna Need It)
-Avoid over-engineering and unnecessary features
-
-### KISS (Keep It Simple, Stupid)
-Prefer simple, straightforward solutions
-
-### DRY (Don't Repeat Yourself)
-Eliminate code duplication
-
-### File Size Management
-- Keep files under 500 lines
-- Split large files into focused components
-- Extract utilities into separate modules
-
-### Security First
-- Try-catch error handling
-- Security standards coverage
-- No secrets in commits
-- Confidential info protection
-
-## Agent Communication Protocol
-
-**Report Format**: Markdown files in `./plans/<plan-name>/reports/`
-**Naming Convention**: `{date}-from-[agent]-to-[agent]-[task]-report.md`
-
-**Communication Patterns**:
-- Sequential: Task dependencies require ordered execution
-- Parallel: Independent tasks run simultaneously
-- Query Fan-Out: Multiple researchers explore different approaches
-
-## Git Workflow
-
-**Commit Message Format**: Conventional Commits
-```
-type(scope): description
-
-Types:
-- feat: Features (minor bump)
-- fix: Bug fixes (patch bump)
-- docs: Documentation (patch bump)
-- refactor: Code refactoring (patch bump)
-- test: Tests (patch bump)
-- ci: CI changes (patch bump)
-- BREAKING CHANGE: Major version bump
+**Data Structure**:
+```typescript
+{
+  id: string
+  frameId: string
+  photos: CapturedPhoto[]        // N+extra photos
+  selectedPhotoIndices: number[] // User's selection (N photos)
+  state: 'capturing' | 'selecting' | 'confirmed'
+}
 ```
 
-**Automated Release**:
-- Every push to `main` triggers release check
-- Semantic versioning (MAJOR.MINOR.PATCH)
-- Automated changelog generation
-- GitHub releases with generated notes
+#### Settings IPC Handler: `src/main/ipc-handlers/settings-ipc-handlers.ts` (NEW)
+- **Namespace**: `settings:`
+- **Exposes**:
+  - `settings:get()` - Returns current settings
+  - `settings:set(updates)` - Persist settings
+  - `settings:reset()` - Restore defaults
 
-## Testing Strategy
+**Persisted Settings**:
+```typescript
+{
+  extraPhotos: number    // 1-5, default 3 (NEW)
+  countdownSeconds: number
+  enableQR: boolean
+}
+```
 
-- Comprehensive unit tests required
-- High code coverage mandatory
-- Error scenario testing
-- Performance validation
-- Tests must pass before push
-- No ignoring failed tests
+**Storage**: `~/.ptb-settings.json` (user data directory)
 
-## Documentation Standards
+#### Camera Service Manager: `src/main/services/camera-service-manager.ts`
+- **Purpose**: Camera abstraction layer
+- **Supported Cameras**:
+  1. Canon EOS via DCC (Canon.EOS.API)
+  2. Webcam (via mediasoup/webcam lib)
+  3. Mock (development/testing)
 
-**Required Docs** (`./docs/`):
-- `project-overview-pdr.md` - Project overview and PDR
-- `code-standards.md` - Coding standards and structure
-- `codebase-summary.md` - This file
-- `system-architecture.md` - Architecture documentation
-- `project-roadmap.md` - Development roadmap
-- `project-changelog.md` - Detailed changelog
-- `statusline-windows-support.md` - Windows statusline setup guide
-- `statusline-architecture.md` - Technical statusline implementation
+**Key Methods**:
+- `connect(type)` - Connect to camera
+- `capture()` - Trigger shutter
+- `getLivePreview()` - Stream preview frames
+- `getStatus()` - Camera state
+- `disconnect()` - Release resources
 
-**Documentation Triggers**:
-- Feature implementation completion
-- Major milestone achievements
-- Bug fixes
-- Security updates
-- Weekly reviews
+**Error Handling**: Fallback from Canon → Webcam on connection failure
+
+#### Webcam Camera Service: `src/main/services/webcam-camera-service.ts` (NEW)
+- **Purpose**: Dedicated webcam implementation
+- **Uses**: `getUserMedia()` API via Electron context
+- **Capabilities**:
+  - Real-time preview streaming
+  - Photo capture from video stream
+  - Resolution/format negotiation
+
+### 2. Renderer Layer (React)
+
+#### State Machine Hook: `src/renderer/hooks/use-capture-session-state-machine.ts`
+- **State Machine**:
+  ```
+  IDLE → FRAME_SELECTED → CAPTURING → PHOTOS_CAPTURED →
+  PHOTO_SELECTION → CONFIRMED → PROCESSING → COMPLETE
+  ```
+
+- **Actions** (reducer):
+  - `selectFrame(frameId)` - Transition to FRAME_SELECTED
+  - `configureCountdown(config)` - Store countdown settings
+  - `enableAutoSequence()` - Auto-trigger captures
+  - `startCountdown()` - Begin countdown timer
+  - `onCaptureComplete(index, buffer)` - Record photo, check if all captured
+  - `confirmPhotos(selectedIndices)` - Move to CONFIRMED state
+  - `resetSession()` - Back to IDLE
+
+- **State Properties**:
+  ```typescript
+  {
+    session: {
+      id: string
+      frameId: string
+      countdownConfig: CountdownConfig
+      photos: CapturedPhoto[]
+      selectedPhotoIndices: number[]
+      state: SessionState
+    }
+    isCapturing: boolean
+    isCountingDown: boolean
+    shotProgress: { current: number, total: number }
+  }
+  ```
+
+#### Camera Connection Hook: `src/renderer/hooks/use-camera-connection.ts`
+- **Manages**:
+  - Camera connection lifecycle
+  - Capture command delegation
+  - Camera mode auto-detection
+  - Error recovery
+
+- **Exposes**:
+  - `connect(type)` - Initiate connection
+  - `capture()` - Trigger photo
+  - `cameraMode` - Current camera type
+  - `webcamCapture()` - Webcam-specific capture
+  - `disconnect()` - Cleanup
+
+#### Audio Feedback Hook: `src/renderer/hooks/use-audio-feedback.ts`
+- **Provides**:
+  - `playCountdownTick()` - Beep every second
+  - `playShutterSound()` - Camera shutter sound
+  - `playSuccessSound()` - Confirmation chime
+  - `playStartSound()` - Session start
+
+**Implementation**: HTML5 Web Audio API with preloaded buffers
+
+### 3. Photo Selection Components (NEW)
+
+#### PhotoSelectionPanel: `src/renderer/components/photo-selection-panel.tsx`
+- **Purpose**: Main orchestrator for photo selection
+- **Props**:
+  ```typescript
+  {
+    capturedPhotos: CapturedPhoto[]
+    frame: Frame
+    onConfirm: (selectedPhotoIndices: number[]) => void
+  }
+  ```
+
+- **Layout**: 40/60 split (Grid on left, Frame preview on right)
+
+- **State**:
+  ```typescript
+  slotAssignments: (number | null)[]  // Index into capturedPhotos[] per slot
+  ```
+
+- **Handlers**:
+  - `handlePhotoClick(photoArrayIndex)` - Toggle assign/unassign
+  - `handleSlotClick(slotIndex)` - Unassign from slot
+  - `handleConfirm()` - Validate + call onConfirm()
+
+- **Validation**: All slots must be filled before confirm enabled
+
+#### PhotoSelectionCapturedGrid: `src/renderer/components/photo-selection-captured-grid.tsx`
+- **Purpose**: Scrollable grid of captured photos
+- **Props**:
+  ```typescript
+  {
+    capturedPhotos: CapturedPhoto[]
+    slotAssignments: (number | null)[]  // Shows which are assigned
+    onPhotoClick: (index: number) => void
+  }
+  ```
+
+- **Features**:
+  - Grid layout (4 columns by default)
+  - Photo thumbnails with assigned/unassigned styling
+  - Click handler for assignment
+  - Scrollable container
+
+#### PhotoSelectionFrameSlots: `src/renderer/components/photo-selection-frame-slots.tsx`
+- **Purpose**: Frame preview with N empty slots
+- **Props**:
+  ```typescript
+  {
+    frame: Frame
+    slotAssignments: (number | null)[]  // Which photo in each slot
+    capturedPhotos: CapturedPhoto[]      // For preview display
+    onSlotClick: (slotIndex: number) => void
+  }
+  ```
+
+- **Features**:
+  - Frame template display
+  - N slot positions (from frame.imageCaptures)
+  - Assigned photo preview in each slot
+  - Click to unassign
+  - Prevent confirmation feedback
+
+### 4. Screen Components
+
+#### HomeScreen: `src/renderer/screens/home-screen.tsx`
+- **Purpose**: Frame selection and session initialization
+- **Features**:
+  - Frame card grid
+  - Frame preview with image count
+  - Navigation to capture session
+  - Admin settings link
+
+#### UserCaptureSessionScreen: `src/renderer/screens/user-capture-session-screen.tsx`
+- **Purpose**: Main capture orchestration + photo selection
+- **Flow**:
+  1. Load frame → Initialize state machine
+  2. Connect camera → Show live preview
+  3. User starts capture → Run countdown → Capture N+extra
+  4. Show PhotoSelectionPanel
+  5. User confirms → Navigate to processing
+
+- **State**:
+  - Frame data
+  - Camera availability
+  - Session state (from state machine)
+  - Flash effect visibility
+
+#### AdminSettingsScreen: `src/renderer/screens/admin-settings-screen.tsx` (UPDATED)
+- **New Controls**:
+  - "Extra Photos" slider (1-5, default 3)
+  - Persists via `settings:set` IPC
+
+- **Updates live capture behavior**: Extra photos added to base frame count
+
+#### AdminCameraTestScreen: `src/renderer/screens/admin-camera-test-screen.tsx` (UPDATED)
+- **Features**:
+  - Camera device detection/selection
+  - Connection status display
+  - Test capture button
+  - Settings awareness
+
+### 5. Type System (`src/shared/types/`)
+
+#### session-types.ts
+```typescript
+interface CapturedPhoto {
+  index: number           // Sequential ID in session
+  timestamp: number       // Capture time (ms)
+  imageBuffer: Buffer     // Raw image data
+  preview?: string        // Base64 thumbnail
+}
+
+interface SessionState {
+  id: string
+  frameId: string
+  photos: CapturedPhoto[]
+  selectedPhotoIndices: number[]  // User selection
+  countdownConfig: CountdownConfig
+  state: 'idle' | 'capturing' | 'selecting' | 'confirmed'
+}
+```
+
+#### frame-types.ts
+```typescript
+interface Frame {
+  id: string
+  name: string
+  imageCaptures: number     // N photos needed
+  layout: LayoutConfig      // Position/size info
+  template: string          // SVG/image path
+}
+```
+
+#### camera-types.ts (UPDATED)
+```typescript
+interface CameraSettings {
+  extraPhotos: number       // 1-5, default 3 (NEW)
+  countdownSeconds: number
+  enableQR: boolean
+  qrPosition?: 'top-left' | 'bottom-right'
+}
+
+interface CameraDevice {
+  id: string
+  name: string
+  type: 'canon' | 'webcam' | 'mock'
+  status: 'available' | 'busy' | 'error'
+}
+```
+
+#### countdown-types.ts
+```typescript
+interface CountdownConfig {
+  duration: number          // Total seconds
+  interval: number          // Tick frequency (ms)
+  warnings: number[]        // Beep at these seconds
+  autoCapture: boolean      // Auto-trigger at end
+}
+```
+
+### 6. IPC Bridge: `src/preload/preload.ts` (UPDATED)
+**Purpose**: Safe API exposure to renderer
+
+**Exposed API**:
+```typescript
+window.electronAPI = {
+  camera: {
+    connect: (type: string) => Promise<{ success: boolean }>
+    capture: () => Promise<Buffer>
+    getStatus: () => Promise<CameraDevice>
+    disconnect: () => Promise<void>
+  },
+  session: {
+    create: (frameId: string) => Promise<string>
+    capturePhoto: (buffer: Buffer) => Promise<void>
+    confirmPhotos: (indices: number[]) => Promise<void>
+    getSession: () => Promise<SessionState>
+    reset: () => Promise<void>
+  },
+  settings: {
+    get: () => Promise<CameraSettings>
+    set: (updates: Partial<CameraSettings>) => Promise<{ success: boolean }>
+    reset: () => Promise<void>
+  },
+  frames: {
+    getAll: () => Promise<Frame[]>
+    getById: (id: string) => Promise<Frame>
+  }
+}
+```
+
+## Data Flow Patterns
+
+### Photo Capture Flow
+```
+1. HomeScreen: User selects Frame
+2. UserCaptureSessionScreen:
+   a. Load frame data
+   b. Query settings for extraPhotos (default 3)
+   c. Connect camera
+   d. Show live preview
+   e. User triggers capture → countdown
+3. Capture Loop:
+   - Repeat N + extraPhotos times
+   - Each capture → session:capturePhoto IPC
+   - State machine appends to photos[]
+4. Post-Capture:
+   - Transition to PHOTO_SELECTION state
+   - Render PhotoSelectionPanel
+5. User Selects:
+   - Click N photos to assign to frame slots
+   - Confirm fills all N slots
+6. Processing:
+   - Pass selectedPhotoIndices to composite engine
+   - Generate output with frame overlay
+```
+
+### Settings Update Flow
+```
+AdminSettingsScreen
+    ↓ onChange({ extraPhotos: 4 })
+    ↓ window.electronAPI.settings.set({ extraPhotos: 4 })
+    ↓ IPC: settings:set
+    ↓ Main: settingsIpcHandler
+    ↓ Write to ~/.ptb-settings.json
+    ↓ Return success
+    ↓ UI displays confirmation
+    ↓ Next session: Uses extraPhotos: 4
+```
+
+## TypeScript Configuration
+
+**File**: `tsconfig.json`
+- **Target**: ES2020
+- **Module**: ESNext
+- **Strict**: true (strict mode enabled)
+- **JSX**: react-jsx
+- **Paths**: Configured for src/ aliasing
+
+**Compilation**: All .ts/.tsx files must compile without errors
+
+## Build & Runtime
+
+**Build Tool**: Vite (with Electron plugin)
+- Dev: `npm run dev` - Hot reload + Electron
+- Build: `npm run build` - Production bundle
+- Preload: Compiled separately with context isolation
+
+**Runtime**:
+- Electron 28+ with V8 engine
+- Node.js 18+ in main process
+- Chromium 120+ in renderer
 
 ## Dependencies Overview
 
-### Production Dependencies
-None (template project)
+### Core
+- **electron** (28+) - Desktop app framework
+- **react** (18+) - UI rendering
+- **react-router-dom** (6+) - Client routing
+- **typescript** (5+) - Type safety
 
-### Development Dependencies
-- **@commitlint/cli**: ^18.4.3
-- **@commitlint/config-conventional**: ^18.4.3
-- **@semantic-release/changelog**: ^6.0.3
-- **@semantic-release/commit-analyzer**: ^11.1.0
-- **@semantic-release/git**: ^10.0.1
-- **@semantic-release/github**: ^9.2.6
-- **@semantic-release/npm**: ^11.0.2
-- **@semantic-release/release-notes-generator**: ^12.1.0
-- **conventional-changelog-conventionalcommits**: ^7.0.2
-- **husky**: ^8.0.3
-- **semantic-release**: ^22.0.12
+### UI/Icons
+- **lucide-react** - Icon library
+- **tailwindcss** - Utility CSS
+- **@tailwindcss/forms** - Form styling
 
-## File Statistics
+### Image/Media
+- **sharp** (optional) - Image processing
+- **ffmpeg-cli** - Composite generation
 
-**Total Files**: 48 files (in repomix output)
-**Total Tokens**: 38,868 tokens
-**Total Characters**: 173,077 chars
+### Build
+- **vite** - Fast bundler
+- **electron-builder** - Packaging
 
-**Top 5 Files by Token Count**:
-1. `guide/COMMANDS.md` - 7,073 tokens (18.2%)
-2. `CHANGELOG.md` - 4,836 tokens (12.4%)
-3. `README.md` - 3,261 tokens (8.4%)
+## Code Standards
 
-## Integration Capabilities
+### Naming Conventions
+- **Files**: kebab-case.ts/tsx
+- **Components**: PascalCase (e.g., PhotoSelectionPanel)
+- **Functions/Variables**: camelCase
+- **Constants**: UPPER_SNAKE_CASE
+- **Types/Interfaces**: PascalCase
 
-### Discord Notifications
-Script: `.claude/hooks/send-discord.sh`
-Purpose: Send project updates to Discord channels
+### File Size Limits
+- Source files: < 200 LOC (split if larger)
+- Component files: < 150 LOC preferred
+- Hooks: < 100 LOC per hook
 
-### GitHub Actions
-Workflow: `.github/workflows/release.yml`
-Features: Automated releases, changelog generation
+### Import Organization
+1. External packages
+2. Electron/Node APIs
+3. Internal components
+4. Relative paths (./types, ../../hooks)
+5. Styles (last)
 
-### Agent Skills
-- **brain**: Advanced reasoning
-- **docs-seeker**: Documentation reading
-- **ai-multimodal**: Visual understanding
-- **ai-multimodal & imagemagick skills**: Content generation and processing
+## Testing Strategy
 
-## Critical Files
+### Unit Tests (Jest)
+- State machine transitions
+- Hook state updates
+- Component prop validation
+- IPC handler input validation
 
-### Configuration
-- `package.json` - Node.js config
-- `.releaserc.json` - Release config
-- `.commitlintrc.json` - Commit linting
-- `.gitignore` - Git exclusions
-- `.repomixignore` - Repomix exclusions
+### Integration Tests
+- Full session capture flow
+- Photo selection to processing
+- Settings save/load cycle
 
-### Documentation
-- `README.md` - Main project docs
-- `CLAUDE.md` - Agent instructions
-- `CHANGELOG.md` - Version history
-- `guide/COMMANDS.md` - Command reference
+### E2E Tests (TBD)
+- Complete user workflows
+- Camera detection accuracy
+- Composite output quality
 
-### Workflows
-- `.claude/rules/primary-workflow.md`
-- `.claude/rules/development-rules.md`
-- `.claude/rules/orchestration-protocol.md`
-- `.claude/rules/documentation-management.md`
+## Future Improvements
 
-## Related Projects
+### Phase 2 (Planned)
+- [ ] Real-time composite preview
+- [ ] Batch processing queue
+- [ ] Advanced photo filters
+- [ ] Cloud backup integration
+- [ ] Multi-frame composition
+- [ ] Printer integration
 
-- **claudekit** - ClaudeKit website (`../claudekit`)
-- **claudekit-marketing** - Marketing Kit (`../claudekit-marketing`)
-- **claudekit-cli** - CLI setup tool (`../claudekit-cli`)
-- **claudekit-docs** - Public docs (`../claudekit-docs`)
+### Technical Debt
+- [ ] Add comprehensive test suite
+- [ ] Implement error boundary components
+- [ ] Optimize large photo grid rendering
+- [ ] Add accessibility (WCAG 2.1 AA)
 
-## Version History
+## Development Workflow
 
-**Current**: v2.9.0-beta.2 (released 2026-01-28)
-**License**: MIT
-**Author**: Duy Nguyen
-**Repository**: https://github.com/claudekit/claudekit-engineer
+1. **Setup**: Clone, `npm install`, set env vars
+2. **Dev**: `npm run dev` - Hot reload
+3. **Feature Branch**: `git checkout -b feature/xyz`
+4. **Code**: Follow standards, type-safe
+5. **Test**: Run suite before push
+6. **Commit**: Conventional commits (`feat:`, `fix:`, `docs:`)
+7. **PR**: Code review + CI validation
+8. **Merge**: Squash to main, triggers release
 
 ## Unresolved Questions
 
-None identified. All core components are well-documented and functional.
+1. What's the target performance profile for large photo grids (10+ photos)?
+2. Should composite caching be implemented for faster regeneration?
+3. Is multi-camera session support planned (multiple devices simultaneously)?
+4. What's the image quality target (resolution, compression)?
+5. Should photo metadata (EXIF) be preserved in composites?

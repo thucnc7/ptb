@@ -18,6 +18,11 @@
   },
   "dependencies": {
     "@electron/get": "^4.0.2",
+    "@fontsource-variable/fredoka": "^5.2.10",
+    "@fontsource-variable/nunito": "^5.2.7",
+    "@fontsource-variable/quicksand": "^5.2.10",
+    "@fontsource/fredoka": "^5.2.10",
+    "@fontsource/nunito": "^5.2.7",
     "chokidar": "^5.0.0",
     "electron-store": "^8.1.0",
     "lucide-react": "^0.563.0",

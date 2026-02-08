@@ -49,6 +49,7 @@ export function useCaptureSession(): UseCaptureSessionReturn {
                 totalPhotos: frame.imageCaptures,
                 currentPhotoIndex: 0,
                 capturedPhotos: [],
+                selectedPhotoIndices: [],
                 countdownValue: 5,
                 countdownConfig: null,
                 autoSequenceEnabled: false,
