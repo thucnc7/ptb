@@ -32,6 +32,9 @@ export default defineConfig({
     plugins: [react()],
     build: {
       outDir: resolve(__dirname, 'out/renderer'),
+      // Prevent crossorigin attr on scripts (breaks file:// in production)
+      crossOriginLoading: false,
+      modulePreload: false,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html')
