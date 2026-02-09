@@ -23,9 +23,10 @@ interface LocationState {
 export function UserResultScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { sessionId, downloadUrl, videoPath } = (location.state as LocationState) || {}
+  const { sessionId, downloadUrl, videoPath: navVideoPath } = (location.state as LocationState) || {}
 
   const [compositeDataUrl, setCompositeDataUrl] = useState<string | null>(null)
+  const [resolvedVideoPath, setResolvedVideoPath] = useState<string | null>(navVideoPath || null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(true)
@@ -57,6 +58,19 @@ export function UserResultScreen() {
     }
 
     loadComposite()
+
+    // Check for video recording (may arrive after navigation)
+    if (!navVideoPath) {
+      const checkVideo = async () => {
+        try {
+          const vPath = await window.electronAPI.video.getPath(sessionId)
+          if (vPath) setResolvedVideoPath(vPath)
+        } catch { /* no video */ }
+      }
+      // Delay check to allow video save to complete
+      const videoTimer = setTimeout(checkVideo, 3000)
+      return () => clearTimeout(videoTimer)
+    }
 
     // Hide confetti after 5 seconds
     const confettiTimer = setTimeout(() => setShowConfetti(false), 5000)
@@ -162,7 +176,7 @@ export function UserResultScreen() {
       </div>
 
       {/* Video button (only when video was recorded) */}
-      {videoPath && (
+      {resolvedVideoPath && (
         <div className="relative z-10 flex justify-center mt-8">
           <button
             onClick={handleOpenFolder}
