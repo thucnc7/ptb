@@ -5,8 +5,12 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Sparkles, Camera, Zap, Star, Heart, FolderOpen } from 'lucide-react'
-import { QRCodeDisplay } from '../components/qr-code-display'
+import { Download } from 'lucide-react'
+import { CompositeImageDisplay } from '../components/user-result-composite-image-display'
+import { QRSection } from '../components/user-result-qr-section'
+import { ResultActionButtons } from '../components/user-result-action-buttons'
+import { AnimatedBackgroundOrbs } from '../components/animated-background-orbs'
+import { UserResultHeader } from '../components/user-result-header'
 import Confetti from 'react-confetti'
 
 interface LocationState {
@@ -127,61 +131,10 @@ export function UserResultScreen() {
       )}
 
       {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute w-[600px] h-[600px] rounded-full opacity-30 blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #7C3AED 0%, transparent 70%)',
-            top: '-200px',
-            right: '-100px',
-            animation: 'float 8s ease-in-out infinite'
-          }}
-        />
-        <div
-          className="absolute w-[500px] h-[500px] rounded-full opacity-25 blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #EC4899 0%, transparent 70%)',
-            bottom: '-150px',
-            left: '-100px',
-            animation: 'float 10s ease-in-out infinite reverse'
-          }}
-        />
-        <div
-          className="absolute w-[400px] h-[400px] rounded-full opacity-20 blur-3xl"
-          style={{
-            background: 'radial-gradient(circle, #06B6D4 0%, transparent 70%)',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            animation: 'pulse-glow 4s ease-in-out infinite'
-          }}
-        />
-      </div>
+      <AnimatedBackgroundOrbs />
 
       {/* Header */}
-      <div className="flex flex-col items-center mb-8 relative z-10">
-        <div className="flex items-center gap-3 mb-4">
-          <Star className="w-12 h-12 text-yellow-400" fill="currentColor" />
-          <h1
-            className={`text-6xl font-bold transition-all duration-1000 ${
-              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-10'
-            }`}
-            style={{
-              fontFamily: 'var(--font-heading)',
-              background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 50%, #8B5CF6 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 40px rgba(245, 158, 11, 0.3)'
-            }}
-          >
-            Xong rồi nè! 🎉
-          </h1>
-          <Heart className="w-12 h-12 text-pink-400" fill="currentColor" />
-        </div>
-        <p className="text-xl text-purple-300/80">
-          Ảnh siêu đẹp của bạn đây! Quét mã QR để tải về nhé ✨
-        </p>
-      </div>
+      <UserResultHeader hasQrLink={hasQrLink} mounted={mounted} />
 
       {/* Main content */}
       <div className="flex-1 flex gap-8 relative z-10 items-center justify-center">
@@ -192,100 +145,25 @@ export function UserResultScreen() {
           }`}
           style={{ maxHeight: 'calc(100vh - 280px)' }}
         >
-          <div
-            className="rounded-3xl overflow-hidden shadow-2xl"
-            style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(20px)',
-              border: '2px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 20px 60px rgba(139, 92, 246, 0.3)',
-              maxHeight: 'calc(100vh - 280px)'
-            }}
-          >
-            {isLoading ? (
-              <div className="w-80 h-96 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                  <Sparkles className="w-16 h-16 text-purple-400 animate-spin" />
-                  <p className="text-xl text-purple-300">Đang tải ảnh...</p>
-                </div>
-              </div>
-            ) : compositeDataUrl ? (
-              <div 
-                className="relative group cursor-pointer"
-                onClick={handleOpenFolder}
-                title="Nhấn để mở thư mục chứa ảnh"
-              >
-                <img
-                  src={compositeDataUrl}
-                  alt="Composite photo"
-                  className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-                  style={{
-                    animation: 'fade-in 0.5s ease-out',
-                    maxHeight: 'calc(100vh - 300px)',
-                    maxWidth: '100%'
-                  }}
-                  onLoad={() => console.log('[RENDERER] Composite image loaded successfully')}
-                  onError={(e) => {
-                    console.error('[RENDERER] Failed to load composite image:', e)
-                    console.error('[RENDERER] Image src length:', compositeDataUrl?.length)
-                    console.error('[RENDERER] Image src prefix:', compositeDataUrl?.substring(0, 100))
-                  }}
-                />
-                {/* Hover overlay with folder icon */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl">
-                  <div className="flex flex-col items-center gap-2 text-white">
-                    <FolderOpen className="w-12 h-12" />
-                    <span className="text-lg font-medium">Mở thư mục</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="w-80 h-96 flex items-center justify-center">
-                <p className="text-xl text-red-400">Không tải được ảnh</p>
-              </div>
-            )}
-          </div>
+          <CompositeImageDisplay
+            compositeDataUrl={compositeDataUrl}
+            isLoading={isLoading}
+            onOpenFolder={handleOpenFolder}
+          />
         </div>
 
-        {/* Right: QR Code (only show if Drive link available) */}
-        {hasQrLink && (
-          <div
-            className={`transition-all duration-700 delay-300 ${
-              mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'
-            }`}
-          >
-            <QRCodeDisplay
-              url={finalDownloadUrl}
-              size={280}
-              showUrl={false}
-            />
-
-            {/* Fun message */}
-            <div
-              className="mt-6 p-6 rounded-2xl text-center"
-              style={{
-                background: 'rgba(139, 92, 246, 0.1)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(139, 92, 246, 0.3)'
-              }}
-            >
-              <Sparkles className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-              <p className="text-lg text-purple-200 font-medium">
-                Dùng điện thoại quét QR nhé! 📱
-              </p>
-              <p className="text-sm text-purple-300/60 mt-2">
-                Ảnh sẽ tự động tải về máy
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Right: QR Code or Fallback Message */}
+        <QRSection
+          downloadUrl={finalDownloadUrl}
+          hasQrLink={hasQrLink}
+          mounted={mounted}
+        />
       </div>
 
-      {/* Action buttons */}
-      <div className="relative z-10 flex gap-6 justify-center mt-8">
-        {/* Retake button */}
+      {/* Download button */}
+      <div className="relative z-10 flex justify-center mt-8">
         <button
-          onClick={handleRetake}
+          onClick={handleOpenFolder}
           className="group relative cursor-pointer"
         >
           {/* Glow effect */}
@@ -299,50 +177,18 @@ export function UserResultScreen() {
               boxShadow: '0 20px 60px rgba(139, 92, 246, 0.4)'
             }}
           >
-            <Camera className="w-7 h-7" />
-            <span>Chụp lại</span>
-          </div>
-        </button>
-
-        {/* New session button */}
-        <button
-          onClick={handleNewSession}
-          className="group relative cursor-pointer"
-        >
-          {/* Glow effect */}
-          <div className="absolute -inset-1 rounded-3xl blur-lg bg-gradient-to-r from-cyan-500 to-blue-500 opacity-50 group-hover:opacity-70 transition-opacity" />
-
-          {/* Button content */}
-          <div
-            className="relative flex items-center gap-3 px-10 py-5 rounded-2xl font-bold text-xl shadow-2xl transition-all duration-300 bg-gradient-to-r from-cyan-500 to-blue-500 text-white group-hover:scale-105"
-            style={{
-              fontFamily: 'var(--font-heading)',
-              boxShadow: '0 20px 60px rgba(6, 182, 212, 0.4)'
-            }}
-          >
-            <Zap className="w-7 h-7" />
-            <span>Chụp tiếp</span>
+            <Download className="w-7 h-7" />
+            <span>Tải ảnh về</span>
           </div>
         </button>
       </div>
 
-      {/* Inline animations */}
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-30px) rotate(5deg); }
-        }
+      {/* Action buttons */}
+      <ResultActionButtons
+        onRetake={handleRetake}
+        onNewSession={handleNewSession}
+      />
 
-        @keyframes pulse-glow {
-          0%, 100% { opacity: 0.2; transform: translate(-50%, -50%) scale(1); }
-          50% { opacity: 0.35; transform: translate(-50%, -50%) scale(1.1); }
-        }
-
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }

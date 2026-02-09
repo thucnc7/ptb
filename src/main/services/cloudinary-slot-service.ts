@@ -32,12 +32,21 @@ class CloudinarySlotService {
     if (this.configured) return
 
     try {
-      // Load .env from app root
+      // Load .env from project root
+      // In dev mode: use process.cwd() which points to project root
+      // In production: use process.resourcesPath where .env should be bundled
       const envPath = app.isPackaged
         ? path.join(process.resourcesPath, '.env')
-        : path.join(app.getAppPath(), '.env')
+        : path.join(process.cwd(), '.env')
 
-      dotenv.config({ path: envPath })
+      console.log('[CLOUDINARY] Loading .env from:', envPath)
+      const result = dotenv.config({ path: envPath })
+
+      if (result.error) {
+        console.warn('[CLOUDINARY] Failed to load .env file:', result.error.message)
+      } else {
+        console.log('[CLOUDINARY] .env loaded successfully')
+      }
 
       const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dqkwjkcnq'
       const apiKey = process.env.CLOUDINARY_API_KEY
