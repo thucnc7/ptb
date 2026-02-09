@@ -26,7 +26,10 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=optional
+
+      - name: Verify sharp native binaries
+        run: node -e "require('@img/sharp-win32-x64/sharp.node'); console.log('sharp-win32-x64 OK')"
 
       - name: Build app
         run: npm run build
