@@ -132,23 +132,24 @@ export function UserCaptureSessionScreen() {
     }
   }, [session.state, dccAvailable])
 
-  // Start video recording on first countdown (webcam mode only)
+  // Start video recording on first countdown (when webcam stream available)
   useEffect(() => {
-    if (session.state === 'countdown' && !recordingStartedRef.current && cameraMode === 'webcam') {
+    if (session.state === 'countdown' && !recordingStartedRef.current) {
       const stream = webcamRef.current?.getStream()
       if (stream) {
         startRecording(stream)
         recordingStartedRef.current = true
       }
     }
-  }, [session.state, cameraMode, startRecording])
+  }, [session.state, startRecording])
 
   // Stop video recording when entering photo-selection
   useEffect(() => {
-    if (session.state === 'photo-selection' && isRecording) {
+    if (session.state === 'photo-selection' && recordingStartedRef.current) {
       stopRecording()
+      recordingStartedRef.current = false
     }
-  }, [session.state, isRecording, stopRecording])
+  }, [session.state, stopRecording])
 
   // Play countdown tick sound
   useEffect(() => {
