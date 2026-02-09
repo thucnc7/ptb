@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react'
+
+export interface DccLiveViewRef {
+  getStream: () => MediaStream | null
+}
 
 interface DccLiveViewProps {
   className?: string
@@ -7,13 +11,30 @@ interface DccLiveViewProps {
   pollInterval?: number
 }
 
-export function DccLiveView({ className = '', onError, pollInterval = 100 }: DccLiveViewProps) {
+export const DccLiveView = forwardRef<DccLiveViewRef, DccLiveViewProps>(function DccLiveView(
+  { className = '', onError, pollInterval = 100 },
+  ref
+) {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const baseUrlRef = useRef<string>('')
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null)
   const retryCountRef = useRef(0)
   const maxRetries = 3
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  // Expose getStream for video recording via canvas.captureStream()
+  useImperativeHandle(ref, () => ({
+    getStream: (): MediaStream | null => {
+      if (streamRef.current) return streamRef.current
+      const canvas = canvasRef.current
+      if (!canvas || !canvas.width) return null
+      streamRef.current = canvas.captureStream(10) // 10fps
+      return streamRef.current
+    }
+  }))
 
   const updateFrame = useCallback(() => {
     if (baseUrlRef.current) {
@@ -52,7 +73,22 @@ export function DccLiveView({ className = '', onError, pollInterval = 100 }: Dcc
     }
   }
 
+  /** Draw current img frame onto hidden canvas for captureStream recording */
+  const drawToCanvas = useCallback(() => {
+    const img = imgRef.current
+    const canvas = canvasRef.current
+    if (!img || !canvas || !img.naturalWidth) return
+    if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+    }
+    const ctx = canvas.getContext('2d')
+    if (ctx) ctx.drawImage(img, 0, 0)
+  }, [])
+
   const handleLoad = () => {
+    // Draw every loaded frame to canvas for video recording
+    drawToCanvas()
     if (status === 'loading') {
       console.log('First frame loaded, starting polling')
       setStatus('ready')
@@ -99,6 +135,7 @@ export function DccLiveView({ className = '', onError, pollInterval = 100 }: Dcc
     <div className={`relative bg-gray-900 rounded-lg overflow-hidden ${className}`}>
       {imageUrl && (
         <img
+          ref={imgRef}
           src={imageUrl}
           alt="Camera Live View"
           className="w-full h-full object-contain"
@@ -107,6 +144,8 @@ export function DccLiveView({ className = '', onError, pollInterval = 100 }: Dcc
           style={{ minHeight: '300px' }}
         />
       )}
+      {/* Hidden canvas for captureStream() video recording */}
+      <canvas ref={canvasRef} className="hidden" />
 
       {status === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
@@ -150,4 +189,4 @@ export function DccLiveView({ className = '', onError, pollInterval = 100 }: Dcc
       )}
     </div>
   )
-}
+})

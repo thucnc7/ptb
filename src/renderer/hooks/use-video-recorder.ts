@@ -95,6 +95,10 @@ export function useVideoRecorder(sessionId: string | null): UseVideoRecorderRetu
         } catch (err) {
           console.error('[VIDEO] Failed to save video:', err)
         } finally {
+          // Stop cloned stream tracks to release camera resource
+          try {
+            recorder.stream.getTracks().forEach(t => t.stop())
+          } catch { /* ignore */ }
           recorderRef.current = null
           chunksRef.current = []
           setIsRecording(false)

@@ -11,7 +11,7 @@ import type { CountdownConfig } from '../../shared/types/countdown-types'
 import { useCaptureSessionStateMachine } from '../hooks/use-capture-session-state-machine'
 import { useCameraConnection } from '../hooks/use-camera-connection'
 import { useAudioFeedback } from '../hooks/use-audio-feedback'
-import { DccLiveView } from '../components/dcc-live-view'
+import { DccLiveView, type DccLiveViewRef } from '../components/dcc-live-view'
 import { WebcamLiveView, type WebcamLiveViewRef } from '../components/webcam-live-view'
 import { CountdownOverlayFullscreen, CaptureFlashEffect } from '../components/countdown-overlay-fullscreen'
 import { PhotoSelectionPanel } from '../components/photo-selection-panel'
@@ -46,6 +46,7 @@ export function UserCaptureSessionScreen() {
 
   const { connect, capture, cameraMode, webcamCapture } = useCameraConnection()
   const webcamRef = useRef<WebcamLiveViewRef>(null)
+  const dccRef = useRef<DccLiveViewRef>(null)
   const { startRecording, stopRecording, isRecording, videoPath } = useVideoRecorder(sessionId)
   const recordingStartedRef = useRef(false)
   const {
@@ -132,16 +133,40 @@ export function UserCaptureSessionScreen() {
     }
   }, [session.state, dccAvailable])
 
-  // Start video recording on first countdown (when webcam stream available)
+  // Start video recording on first countdown
+  // Supports both webcam (getUserMedia) and DCC (canvas.captureStream)
+  // Clone webcam streams so recording survives WebcamLiveView remounts during state transitions
   useEffect(() => {
     if (session.state === 'countdown' && !recordingStartedRef.current) {
-      const stream = webcamRef.current?.getStream()
+      const getRecordingStream = (): MediaStream | null => {
+        // Try webcam first, then DCC canvas stream
+        const webcamStream = webcamRef.current?.getStream()
+        if (webcamStream) return webcamStream.clone()
+        const dccStream = dccRef.current?.getStream()
+        if (dccStream) return dccStream // DCC canvas stream doesn't need cloning
+        return null
+      }
+
+      console.log('[VIDEO-DEBUG] Countdown detected, mode:', cameraMode)
+      const stream = getRecordingStream()
+      console.log('[VIDEO-DEBUG] Stream:', !!stream, stream?.getTracks().length, 'tracks')
       if (stream) {
         startRecording(stream)
         recordingStartedRef.current = true
+      } else {
+        // Retry after short delay - stream may not be ready yet
+        const retryTimer = setTimeout(() => {
+          const retryStream = getRecordingStream()
+          console.log('[VIDEO-DEBUG] Retry stream:', !!retryStream)
+          if (retryStream && !recordingStartedRef.current) {
+            startRecording(retryStream)
+            recordingStartedRef.current = true
+          }
+        }, 500)
+        return () => clearTimeout(retryTimer)
       }
     }
-  }, [session.state, startRecording])
+  }, [session.state, startRecording, cameraMode])
 
   // Stop video recording when entering photo-selection
   useEffect(() => {
@@ -269,14 +294,21 @@ export function UserCaptureSessionScreen() {
   // Error state - show error message and retry option
   if (session.state === 'error') {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-8"
-        style={{
-          fontFamily: 'var(--font-body)',
-          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
-        }}
-      >
-        <div className="text-center max-w-md">
+      <>
+        {/* Keep WebcamLiveView mounted but hidden to preserve stream if retrying */}
+        {cameraMode === 'webcam' && (
+          <div className="hidden">
+            <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
+          </div>
+        )}
+        <div
+          className="min-h-screen flex items-center justify-center p-8"
+          style={{
+            fontFamily: 'var(--font-body)',
+            background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+          }}
+        >
+          <div className="text-center max-w-md">
           <div
             className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center"
             style={{
@@ -333,26 +365,35 @@ export function UserCaptureSessionScreen() {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </>
     )
   }
 
   // Photo selection state: user picks best N photos from N+extra captures
   if (session.state === 'photo-selection' && frame) {
     return (
-      <div
-        className="min-h-screen"
-        style={{
-          fontFamily: 'var(--font-body)',
-          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
-        }}
-      >
-        <PhotoSelectionPanel
-          capturedPhotos={session.capturedPhotos}
-          frame={frame}
-          onConfirm={handleConfirmWithSelection}
-        />
-      </div>
+      <>
+        {/* Keep WebcamLiveView mounted but hidden - though recording should be stopped by now */}
+        {cameraMode === 'webcam' && (
+          <div className="hidden">
+            <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
+          </div>
+        )}
+        <div
+          className="min-h-screen"
+          style={{
+            fontFamily: 'var(--font-body)',
+            background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+          }}
+        >
+          <PhotoSelectionPanel
+            capturedPhotos={session.capturedPhotos}
+            frame={frame}
+            onConfirm={handleConfirmWithSelection}
+          />
+        </div>
+      </>
     )
   }
 
@@ -360,14 +401,21 @@ export function UserCaptureSessionScreen() {
   if (session.state === 'photo-preview') {
     const lastPhoto = session.capturedPhotos[session.capturedPhotos.length - 1]
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          fontFamily: 'var(--font-body)',
-          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
-        }}
-      >
-        <div className="text-center">
+      <>
+        {/* Keep WebcamLiveView mounted but hidden to preserve stream for video recording */}
+        {cameraMode === 'webcam' && (
+          <div className="hidden">
+            <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
+          </div>
+        )}
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{
+            fontFamily: 'var(--font-body)',
+            background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+          }}
+        >
+          <div className="text-center">
           {lastPhoto && (
             <div className="relative" style={{ animation: 'pop-in 0.3s ease-out' }}>
               <img
@@ -419,21 +467,29 @@ export function UserCaptureSessionScreen() {
             100% { opacity: 0; transform: translateY(-50px) rotate(180deg); }
           }
         `}</style>
-      </div>
+        </div>
+      </>
     )
   }
 
   // Inter-photo pause state (brief pause between auto-captures)
   if (session.state === 'inter-photo') {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          fontFamily: 'var(--font-body)',
-          background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
-        }}
-      >
-        <div className="text-center">
+      <>
+        {/* Keep WebcamLiveView mounted but hidden to preserve stream for video recording */}
+        {cameraMode === 'webcam' && (
+          <div className="hidden">
+            <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
+          </div>
+        )}
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{
+            fontFamily: 'var(--font-body)',
+            background: 'linear-gradient(135deg, #1a1625 0%, #2d1f3d 50%, #1a2535 100%)'
+          }}
+        >
+          <div className="text-center">
           <div style={{ animation: 'pulse-scale 1s ease-in-out infinite' }}>
             <Sparkles className="w-24 h-24 text-pink-400 mx-auto mb-6" />
           </div>
@@ -458,9 +514,13 @@ export function UserCaptureSessionScreen() {
             50% { transform: scale(1.2); opacity: 0.8; }
           }
         `}</style>
-      </div>
+        </div>
+      </>
     )
   }
+
+  // Determine if live view should be visible
+  const showLiveView = session.state === 'idle' || session.state === 'countdown' || session.state === 'capturing'
 
   // Main capture view
   return (
@@ -468,12 +528,12 @@ export function UserCaptureSessionScreen() {
       className="min-h-screen relative overflow-hidden"
       style={{ fontFamily: 'var(--font-body)' }}
     >
-      {/* Live view */}
-      <div className="absolute inset-0">
+      {/* Live view - ALWAYS mounted for webcam mode to keep stream alive for video recording */}
+      <div className={`absolute inset-0 ${showLiveView ? '' : 'hidden'}`}>
         {cameraMode === 'webcam' ? (
           <WebcamLiveView ref={webcamRef} className="w-full h-full" mirror={true} />
         ) : dccAvailable ? (
-          <DccLiveView className="w-full h-full" />
+          <DccLiveView ref={dccRef} className="w-full h-full" />
         ) : (
           <div
             className="w-full h-full flex items-center justify-center"
