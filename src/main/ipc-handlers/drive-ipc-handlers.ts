@@ -1,8 +1,9 @@
 import { ipcMain } from 'electron'
-import { getGoogleDriveSlotService } from '../services/google-drive-slot-service'
+import { getCloudinarySlotService } from '../services/cloudinary-slot-service'
 
 /**
- * Register all IPC handlers for Google Drive slot management
+ * Register all IPC handlers for Cloudinary slot management
+ * Note: Keeping channel names as 'drive:*' for backward compatibility
  */
 export function registerDriveIpcHandlers(): void {
   /**
@@ -11,11 +12,11 @@ export function registerDriveIpcHandlers(): void {
    */
   ipcMain.handle('drive:init-pool', async () => {
     try {
-      const service = getGoogleDriveSlotService()
+      const service = getCloudinarySlotService()
       await service.initializePool()
       return service.getPoolStatus()
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to initialize pool:', error)
+      console.error('[CLOUDINARY IPC] Failed to initialize pool:', error)
       throw error
     }
   })
@@ -25,22 +26,24 @@ export function registerDriveIpcHandlers(): void {
    */
   ipcMain.handle('drive:get-pool-status', async () => {
     try {
-      return getGoogleDriveSlotService().getPoolStatus()
+      return getCloudinarySlotService().getPoolStatus()
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to get pool status:', error)
+      console.error('[CLOUDINARY IPC] Failed to get pool status:', error)
       throw error
     }
   })
 
   /**
    * Claim an available slot for a photo session
-   * Returns { fileId, downloadLink } for immediate QR code generation
+   * Returns { fileId, downloadLink } for backward compatibility
+   * Internally uses publicId but maps to fileId in response
    */
   ipcMain.handle('drive:claim-slot', async (_event, sessionId: string) => {
     try {
-      return await getGoogleDriveSlotService().claimSlot(sessionId)
+      const { publicId, downloadLink } = await getCloudinarySlotService().claimSlot(sessionId)
+      return { fileId: publicId, downloadLink }
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to claim slot:', error)
+      console.error('[CLOUDINARY IPC] Failed to claim slot:', error)
       throw error
     }
   })
@@ -51,10 +54,10 @@ export function registerDriveIpcHandlers(): void {
    */
   ipcMain.handle('drive:upload-real-image', async (_event, fileId: string, imagePath: string) => {
     try {
-      await getGoogleDriveSlotService().uploadRealImage(fileId, imagePath)
+      await getCloudinarySlotService().uploadRealImage(fileId, imagePath)
       return { success: true }
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to upload real image:', error)
+      console.error('[CLOUDINARY IPC] Failed to upload real image:', error)
       throw error
     }
   })
@@ -65,10 +68,10 @@ export function registerDriveIpcHandlers(): void {
    */
   ipcMain.handle('drive:release-slot', async (_event, fileId: string) => {
     try {
-      await getGoogleDriveSlotService().releaseSlot(fileId)
+      await getCloudinarySlotService().releaseSlot(fileId)
       return { success: true }
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to release slot:', error)
+      console.error('[CLOUDINARY IPC] Failed to release slot:', error)
       throw error
     }
   })
@@ -79,13 +82,13 @@ export function registerDriveIpcHandlers(): void {
    */
   ipcMain.handle('drive:refill-pool', async () => {
     try {
-      await getGoogleDriveSlotService().refillPool()
-      return getGoogleDriveSlotService().getPoolStatus()
+      await getCloudinarySlotService().refillPool()
+      return getCloudinarySlotService().getPoolStatus()
     } catch (error) {
-      console.error('[GDRIVE IPC] Failed to refill pool:', error)
+      console.error('[CLOUDINARY IPC] Failed to refill pool:', error)
       throw error
     }
   })
 
-  console.log('[GDRIVE IPC] Handlers registered')
+  console.log('[CLOUDINARY IPC] Handlers registered')
 }
