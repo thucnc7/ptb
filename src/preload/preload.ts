@@ -79,6 +79,8 @@ export interface ElectronAPI {
   settings: {
     getExtraPhotos: () => Promise<number>
     setExtraPhotos: (count: number) => Promise<{ success: boolean }>
+    getCloudinaryConfig: () => Promise<{ cloudName: string; apiKey: string; apiSecret: string }>
+    setCloudinaryConfig: (config: { cloudName: string; apiKey: string; apiSecret: string }) => Promise<{ success: boolean }>
   }
 
   // Video recording
@@ -179,7 +181,9 @@ const electronAPI: ElectronAPI = {
 
   settings: {
     getExtraPhotos: () => ipcRenderer.invoke('settings:get-extra-photos'),
-    setExtraPhotos: (count) => ipcRenderer.invoke('settings:set-extra-photos', count)
+    setExtraPhotos: (count) => ipcRenderer.invoke('settings:set-extra-photos', count),
+    getCloudinaryConfig: () => ipcRenderer.invoke('settings:get-cloudinary-config'),
+    setCloudinaryConfig: (config) => ipcRenderer.invoke('settings:set-cloudinary-config', config)
   },
 
   video: {

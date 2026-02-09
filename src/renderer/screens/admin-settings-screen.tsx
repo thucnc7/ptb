@@ -29,12 +29,18 @@ export function AdminSettingsScreen(): JSX.Element {
   const [cameraMode, setCameraMode] = useState<CameraMode>('dcc')
   const [extraPhotos, setExtraPhotos] = useState(3)
   const [loading, setLoading] = useState(true)
+  // Cloudinary config state
+  const [cloudName, setCloudName] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [apiSecret, setApiSecret] = useState('')
+  const [cloudSaving, setCloudSaving] = useState(false)
+  const [cloudSaved, setCloudSaved] = useState(false)
 
   useEffect(() => {
-    loadCameraMode()
+    loadSettings()
   }, [])
 
-  const loadCameraMode = async () => {
+  const loadSettings = async () => {
     try {
       const mode = await window.electronAPI.camera.getMode()
       setCameraMode(mode)
@@ -44,10 +50,32 @@ export function AdminSettingsScreen(): JSX.Element {
       } catch {
         console.warn('Settings API not available, using default extraPhotos=3')
       }
+      // Load Cloudinary config
+      try {
+        const config = await window.electronAPI.settings.getCloudinaryConfig()
+        setCloudName(config.cloudName)
+        setApiKey(config.apiKey)
+        setApiSecret(config.apiSecret)
+      } catch {
+        console.warn('Cloudinary config not available')
+      }
     } catch (e) {
       console.error('Failed to load settings:', e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveCloudinary = async () => {
+    setCloudSaving(true)
+    try {
+      await window.electronAPI.settings.setCloudinaryConfig({ cloudName, apiKey, apiSecret })
+      setCloudSaved(true)
+      setTimeout(() => setCloudSaved(false), 2000)
+    } catch (e) {
+      console.error('Failed to save Cloudinary config:', e)
+    } finally {
+      setCloudSaving(false)
     }
   }
 
@@ -249,6 +277,58 @@ export function AdminSettingsScreen(): JSX.Element {
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        {/* Cloudinary API Config */}
+        <div className="mt-6 p-6 bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/10">
+          <h3 className="text-lg font-bold text-white mb-1">Cloudinary API</h3>
+          <p className="text-slate-400 text-sm mb-4">
+            Enter Cloudinary credentials for image hosting
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Cloud Name</label>
+              <input
+                type="text"
+                value={cloudName}
+                onChange={(e) => setCloudName(e.target.value)}
+                placeholder="e.g. dqkwjkcnq"
+                className="w-full bg-slate-800/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">API Key</label>
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter API Key"
+                className="w-full bg-slate-800/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">API Secret</label>
+              <input
+                type="password"
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder="Enter API Secret"
+                className="w-full bg-slate-800/50 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={handleSaveCloudinary}
+              disabled={cloudSaving || (!apiKey && !apiSecret)}
+              className={`px-6 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 cursor-pointer ${
+                cloudSaved
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30'
+              } ${cloudSaving || (!apiKey && !apiSecret) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {cloudSaved ? 'Saved!' : cloudSaving ? 'Saving...' : 'Save Cloudinary Config'}
+            </button>
           </div>
         </div>
 

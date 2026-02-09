@@ -16,6 +16,7 @@ import {
   type PoolState,
 } from './google-drive-pool-persistence-helper'
 import dotenv from 'dotenv'
+import { getCloudinaryConfigFromStore } from '../ipc-handlers/settings-ipc-handlers'
 
 const POOL_TARGET = 150
 const BATCH_SIZE = 10
@@ -27,48 +28,51 @@ class CloudinarySlotService {
   private initialized = false
   private configured = false
 
-  /** Initialize Cloudinary client with credentials from .env */
+  /** Initialize Cloudinary client with credentials from store or .env fallback */
   private ensureCloudinaryConfig(): void {
     if (this.configured) return
 
     try {
-      // Load .env from project root
-      // In dev mode: use process.cwd() which points to project root
-      // In production: use process.resourcesPath where .env should be bundled
-      const envPath = app.isPackaged
-        ? path.join(process.resourcesPath, '.env')
-        : path.join(process.cwd(), '.env')
+      // Priority 1: Read from electron-store (admin settings UI)
+      const storeConfig = getCloudinaryConfigFromStore()
+      let cloudName = storeConfig.cloudName
+      let apiKey = storeConfig.apiKey
+      let apiSecret = storeConfig.apiSecret
 
-      console.log('[CLOUDINARY] Loading .env from:', envPath)
-      const result = dotenv.config({ path: envPath })
+      // Priority 2: Fallback to .env file
+      if (!apiKey || !apiSecret) {
+        const envPath = app.isPackaged
+          ? path.join(process.resourcesPath, '.env')
+          : path.join(process.cwd(), '.env')
+        dotenv.config({ path: envPath })
 
-      if (result.error) {
-        console.warn('[CLOUDINARY] Failed to load .env file:', result.error.message)
-      } else {
-        console.log('[CLOUDINARY] .env loaded successfully')
+        cloudName = cloudName || process.env.CLOUDINARY_CLOUD_NAME || ''
+        apiKey = apiKey || process.env.CLOUDINARY_API_KEY || ''
+        apiSecret = apiSecret || process.env.CLOUDINARY_API_SECRET || ''
       }
 
-      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dqkwjkcnq'
-      const apiKey = process.env.CLOUDINARY_API_KEY
-      const apiSecret = process.env.CLOUDINARY_API_SECRET
-
       if (!apiKey || !apiSecret) {
-        throw new Error('Missing CLOUDINARY_API_KEY or CLOUDINARY_API_SECRET in environment')
+        throw new Error('Missing Cloudinary API credentials. Please configure in Admin Settings.')
       }
 
       cloudinary.config({
-        cloud_name: cloudName,
+        cloud_name: cloudName || 'dqkwjkcnq',
         api_key: apiKey,
         api_secret: apiSecret,
         secure: true,
       })
 
       this.configured = true
-      console.log('[CLOUDINARY] Config loaded for cloud:', cloudName)
+      console.log('[CLOUDINARY] Config loaded for cloud:', cloudName || 'dqkwjkcnq')
     } catch (error) {
       console.error('[CLOUDINARY] Failed to load config:', error)
       throw error
     }
+  }
+
+  /** Reset config so next call re-reads from store */
+  resetConfig(): void {
+    this.configured = false
   }
 
   /** Upload buffer using promisified upload_stream */
