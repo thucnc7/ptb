@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { CameraMode } from '../../shared/types/camera-types'
+import { AdminCloudinaryPoolSection } from '../components/admin-cloudinary-pool-section'
 
 interface SettingCard {
   title: string
@@ -250,6 +251,9 @@ export function AdminSettingsScreen(): JSX.Element {
             })}
           </div>
         </div>
+
+        {/* Cloudinary Pool Management */}
+        <AdminCloudinaryPoolSection />
 
         {/* Version info */}
         <div className="mt-12 text-center">
