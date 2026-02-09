@@ -74,7 +74,8 @@ export function UserResultScreen() {
     }
   }
 
-  const finalDownloadUrl = downloadUrl || `https://photobooth.app/download/${sessionId}`
+  const finalDownloadUrl = downloadUrl || ''
+  const hasQrLink = finalDownloadUrl.length > 0
 
   const handleOpenFolder = async () => {
     if (!sessionId) return
@@ -246,36 +247,38 @@ export function UserResultScreen() {
           </div>
         </div>
 
-        {/* Right: QR Code */}
-        <div
-          className={`transition-all duration-700 delay-300 ${
-            mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'
-          }`}
-        >
-          <QRCodeDisplay
-            url={finalDownloadUrl}
-            size={280}
-            showUrl={false}
-          />
-
-          {/* Fun message */}
+        {/* Right: QR Code (only show if Drive link available) */}
+        {hasQrLink && (
           <div
-            className="mt-6 p-6 rounded-2xl text-center"
-            style={{
-              background: 'rgba(139, 92, 246, 0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(139, 92, 246, 0.3)'
-            }}
+            className={`transition-all duration-700 delay-300 ${
+              mounted ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'
+            }`}
           >
-            <Sparkles className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-            <p className="text-lg text-purple-200 font-medium">
-              Dùng điện thoại quét QR nhé! 📱
-            </p>
-            <p className="text-sm text-purple-300/60 mt-2">
-              Ảnh sẽ tự động tải về máy
-            </p>
+            <QRCodeDisplay
+              url={finalDownloadUrl}
+              size={280}
+              showUrl={false}
+            />
+
+            {/* Fun message */}
+            <div
+              className="mt-6 p-6 rounded-2xl text-center"
+              style={{
+                background: 'rgba(139, 92, 246, 0.1)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(139, 92, 246, 0.3)'
+              }}
+            >
+              <Sparkles className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+              <p className="text-lg text-purple-200 font-medium">
+                Dùng điện thoại quét QR nhé! 📱
+              </p>
+              <p className="text-sm text-purple-300/60 mt-2">
+                Ảnh sẽ tự động tải về máy
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Action buttons */}

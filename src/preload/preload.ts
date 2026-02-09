@@ -80,6 +80,16 @@ export interface ElectronAPI {
     getExtraPhotos: () => Promise<number>
     setExtraPhotos: (count: number) => Promise<{ success: boolean }>
   }
+
+  // Google Drive slot management (Phase 6)
+  drive: {
+    initPool: () => Promise<{ total: number; available: number; claimed: number; uploaded: number }>
+    getPoolStatus: () => Promise<{ total: number; available: number; claimed: number; uploaded: number }>
+    claimSlot: (sessionId: string) => Promise<{ fileId: string; downloadLink: string }>
+    uploadRealImage: (fileId: string, imagePath: string) => Promise<{ success: boolean }>
+    releaseSlot: (fileId: string) => Promise<{ success: boolean }>
+    refillPool: () => Promise<{ total: number; available: number; claimed: number; uploaded: number }>
+  }
 }
 
 const electronAPI: ElectronAPI = {
@@ -164,6 +174,15 @@ const electronAPI: ElectronAPI = {
   settings: {
     getExtraPhotos: () => ipcRenderer.invoke('settings:get-extra-photos'),
     setExtraPhotos: (count) => ipcRenderer.invoke('settings:set-extra-photos', count)
+  },
+
+  drive: {
+    initPool: () => ipcRenderer.invoke('drive:init-pool'),
+    getPoolStatus: () => ipcRenderer.invoke('drive:get-pool-status'),
+    claimSlot: (sessionId) => ipcRenderer.invoke('drive:claim-slot', sessionId),
+    uploadRealImage: (fileId, imagePath) => ipcRenderer.invoke('drive:upload-real-image', fileId, imagePath),
+    releaseSlot: (fileId) => ipcRenderer.invoke('drive:release-slot', fileId),
+    refillPool: () => ipcRenderer.invoke('drive:refill-pool')
   }
 }
 

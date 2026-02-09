@@ -18,27 +18,39 @@ export function UserProcessingScreen() {
       return
     }
 
-    // Start compositing process
+    // Start compositing + Drive upload in parallel
     const processPhotos = async () => {
       try {
-        // Call actual compositing API
-        const result = await window.electronAPI.session.composite(sessionId, frame, selectedPhotoIndices)
-
-        if (result.success) {
-          // Navigate to result screen
-          navigate('/user/result', {
-            state: {
-              sessionId,
-              compositePath: result.path,
-              downloadUrl: `https://photobooth.app/download/${sessionId}`
-            }
-          })
-        } else {
-          throw new Error('Compositing failed')
+        // 1. Claim a Drive slot immediately (instant QR link)
+        let driveSlot: { fileId: string; downloadLink: string } | null = null
+        try {
+          driveSlot = await window.electronAPI.drive.claimSlot(sessionId)
+          console.log('[PROCESSING] Claimed Drive slot:', driveSlot.downloadLink)
+        } catch (err) {
+          console.warn('[PROCESSING] Drive slot claim failed, continuing without:', err)
         }
+
+        // 2. Composite photos into frame
+        const result = await window.electronAPI.session.composite(sessionId, frame, selectedPhotoIndices)
+        if (!result.success) throw new Error('Compositing failed')
+
+        // 3. Upload real image to Drive in background (don't block navigation)
+        if (driveSlot && result.path) {
+          window.electronAPI.drive.uploadRealImage(driveSlot.fileId, result.path)
+            .then(() => console.log('[PROCESSING] Drive upload complete'))
+            .catch(err => console.error('[PROCESSING] Drive upload failed:', err))
+        }
+
+        // 4. Navigate to result with Drive download link
+        navigate('/user/result', {
+          state: {
+            sessionId,
+            compositePath: result.path,
+            downloadUrl: driveSlot?.downloadLink || ''
+          }
+        })
       } catch (err) {
         console.error('Processing failed:', err)
-        // Show error or navigate back
         navigate('/user/select-frame')
       }
     }

@@ -25,6 +25,7 @@
     "@fontsource/nunito": "^5.2.7",
     "chokidar": "^5.0.0",
     "electron-store": "^8.1.0",
+    "googleapis": "^171.4.0",
     "lucide-react": "^0.563.0",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
@@ -68,6 +69,12 @@
     "files": [
       "out/**/*",
       "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "src/main/assets/service_account.json",
+        "to": "service_account.json"
+      }
     ],
     "asarUnpack": [
       "node_modules/sharp/**/*"
