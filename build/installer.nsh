@@ -1,5 +1,12 @@
-; Custom NSIS installer script - auto-kill running Photobooth before install
+; Custom NSIS installer script - auto-kill running Photobooth before install/uninstall
 !macro customInit
-  ; Kill running Photobooth process before installation
-  nsExec::ExecToLog 'taskkill /f /im Photobooth.exe'
+  ; Kill all Photobooth processes before installation
+  ExecWait 'taskkill /f /im "Photobooth.exe"'
+  Sleep 2000
+!macroend
+
+!macro customUnInit
+  ; Kill all Photobooth processes before uninstallation
+  ExecWait 'taskkill /f /im "Photobooth.exe"'
+  Sleep 2000
 !macroend
