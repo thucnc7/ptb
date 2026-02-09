@@ -138,8 +138,33 @@ class CloudinarySlotService {
     console.log('[CLOUDINARY] Pool ready:', this.poolState.slots.length, 'slots')
   }
 
+  /** Ensure pool state is loaded from disk, migrate old URLs if needed */
+  private async ensurePoolLoaded(): Promise<void> {
+    if (this.poolState.slots.length === 0) {
+      this.poolState = await loadPoolState()
+      if (this.poolState.slots.length > 0) {
+        this.initialized = true
+        // Migrate old direct Cloudinary URLs to download page URLs
+        const baseUrl = process.env.DOWNLOAD_PAGE_URL || 'https://thucnc7.github.io/ptb/download/'
+        let migrated = false
+        for (const slot of this.poolState.slots) {
+          if (slot.downloadLink.includes('res.cloudinary.com')) {
+            slot.downloadLink = `${baseUrl}#${slot.publicId}`
+            migrated = true
+          }
+        }
+        if (migrated) {
+          await savePoolState(this.poolState)
+          console.log('[CLOUDINARY] Migrated download URLs to landing page')
+        }
+        console.log('[CLOUDINARY] Auto-loaded pool:', this.poolState.slots.length, 'slots')
+      }
+    }
+  }
+
   /** Claim an available slot for a capture session */
   async claimSlot(sessionId: string): Promise<{ publicId: string; downloadLink: string }> {
+    await this.ensurePoolLoaded()
     const slot = this.poolState.slots.find((s) => s.status === 'available')
     if (!slot) throw new Error('No available slots in pool')
     slot.status = 'claimed'
@@ -154,6 +179,7 @@ class CloudinarySlotService {
 
   /** Replace placeholder with real composite image */
   async uploadRealImage(publicId: string, imagePath: string): Promise<void> {
+    await this.ensurePoolLoaded()
     this.ensureCloudinaryConfig()
     await cloudinary.uploader.upload(imagePath, {
       public_id: publicId,
@@ -170,6 +196,7 @@ class CloudinarySlotService {
 
   /** Release slot back to available (replace with placeholder) */
   async releaseSlot(publicId: string): Promise<void> {
+    await this.ensurePoolLoaded()
     this.ensureCloudinaryConfig()
     const placeholder = await createPlaceholderBuffer()
     await this.uploadBuffer(placeholder, publicId)
@@ -184,7 +211,8 @@ class CloudinarySlotService {
   }
 
   /** Get current pool statistics */
-  getPoolStatus() {
+  async getPoolStatus() {
+    await this.ensurePoolLoaded()
     const slots = this.poolState.slots
     return {
       total: slots.length,
@@ -196,7 +224,7 @@ class CloudinarySlotService {
 
   /** Refill pool if available slots drop below threshold */
   async refillPool(): Promise<void> {
-    const { available } = this.getPoolStatus()
+    const { available } = await this.getPoolStatus()
     if (available >= REFILL_THRESHOLD) return
     console.log('[CLOUDINARY] Refilling pool, available:', available)
     await this.createSlotBatches(this.poolState.slots.length, REFILL_COUNT)
