@@ -7,6 +7,7 @@ import { app, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import type { CameraInfo, CameraStatus, CaptureResult } from '../../shared/types/camera-types'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 export class MockCameraService {
   private connected = false
@@ -199,7 +200,7 @@ export class MockCameraService {
       return {
         success: true,
         filePath,
-        previewUrl: `file://${filePath}`,
+        previewUrl: pathToFileUrl(filePath),
         timestamp: Date.now()
       }
     } catch (error) {

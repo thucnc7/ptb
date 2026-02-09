@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Frame } from '../../shared/types/frame-types'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Sparkles, Camera } from 'lucide-react'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 export function UserFrameSelectionScreen() {
   const [frames, setFrames] = useState<Frame[]>([])
@@ -143,7 +144,7 @@ export function UserFrameSelectionScreen() {
 
               <div className="aspect-[2/3] w-full bg-gray-900/50 relative">
                 <img
-                  src={`file://${frame.backgroundPath}`}
+                  src={pathToFileUrl(frame.backgroundPath)}
                   alt={frame.name}
                   className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {

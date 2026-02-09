@@ -65,16 +65,20 @@ export class DccCaptureFileWatcherService extends EventEmitter {
     // Dynamic import for ESM-only chokidar
     const chokidar: ChokidarModule = await import('chokidar')
 
+    // Use polling on Windows - native FS events unreliable for network/external drives
+    const isWindows = process.platform === 'win32'
+
     this.watcher = chokidar.watch(watchPath, {
       persistent: true,
       depth: 3,  // Pictures/dCC/SessionN/images
       ignored: [/\.(tmp|lock)$/, /node_modules/, /\.git/],
       ignoreInitial: true,  // Don't emit for existing files
       awaitWriteFinish: {
-        stabilityThreshold: 2000,  // Increased to 2s for large RAW files (CR2/NEF can be 25-50MB)
+        stabilityThreshold: 2000,  // 2s for large RAW files (CR2/NEF can be 25-50MB)
         pollInterval: 200
       },
-      usePolling: false  // Use native FS events for better performance
+      usePolling: isWindows,  // Polling required on Windows for reliable detection
+      interval: isWindows ? 300 : undefined
     })
 
     this.watcher.on('add', (filePath, stats) => {

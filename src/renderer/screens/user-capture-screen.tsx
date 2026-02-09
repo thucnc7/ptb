@@ -4,6 +4,7 @@ import { useCaptureSession } from '../hooks/use-capture-session'
 import { DccLiveView } from '../components/dcc-live-view'
 import { CountdownOverlay } from '../components/countdown-overlay'
 import { ArrowLeft, RefreshCw, Check, Home } from 'lucide-react'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 export function UserCaptureScreen() {
     const { frameId } = useParams<{ frameId: string }>()
@@ -84,7 +85,7 @@ export function UserCaptureScreen() {
                                 #{index + 1}
                             </div>
                             <img
-                                src={`file://${photo.path}`}
+                                src={pathToFileUrl(photo.path)}
                                 alt={`Shot ${index + 1}`}
                                 className="w-full h-64 object-cover"
                             />

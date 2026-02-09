@@ -4,14 +4,7 @@
  */
 
 import type { Frame } from '../../shared/types/frame-types'
-
-function pathToFileUrl(filePath: string): string {
-  if (!filePath) return ''
-  const normalizedPath = filePath.replace(/\\/g, '/')
-  return normalizedPath.startsWith('/')
-    ? `file://${normalizedPath}`
-    : `file:///${normalizedPath}`
-}
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 interface FrameCardProps {
   frame: Frame

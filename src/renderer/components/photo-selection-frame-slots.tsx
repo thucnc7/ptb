@@ -6,6 +6,7 @@
 import { Sparkles } from 'lucide-react'
 import type { CapturedPhoto } from '../../shared/types/session-types'
 import type { Frame } from '../../shared/types/frame-types'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 interface PhotoSelectionFrameSlotsProps {
   frame: Frame
@@ -111,7 +112,7 @@ export function PhotoSelectionFrameSlots({
             {frame.layers?.filter(l => l.type === 'image' && l.imagePath).map(layer => (
               <img
                 key={layer.id}
-                src={`file://${layer.imagePath}`}
+                src={layer.imagePath ? pathToFileUrl(layer.imagePath) : ''}
                 alt=""
                 className="absolute pointer-events-none"
                 style={{

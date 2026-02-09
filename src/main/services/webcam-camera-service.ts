@@ -9,6 +9,7 @@ import { app } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import type { CameraInfo, CameraStatus, CaptureResult } from '../../shared/types/camera-types'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 export class WebcamCameraService {
   private connected = false
@@ -127,7 +128,7 @@ export class WebcamCameraService {
       return {
         success: true,
         filePath,
-        previewUrl: `file://${filePath}`,
+        previewUrl: pathToFileUrl(filePath),
         timestamp
       }
     } catch (error) {

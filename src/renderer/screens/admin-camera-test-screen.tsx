@@ -3,6 +3,7 @@ import { useCameraConnection } from '../hooks/use-camera-connection'
 import { DccLiveView } from '../components/dcc-live-view'
 import { WebcamLiveView, type WebcamLiveViewRef } from '../components/webcam-live-view'
 import { useNavigate } from 'react-router-dom'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 export function AdminCameraTestScreen() {
   const navigate = useNavigate()
@@ -408,7 +409,7 @@ export function AdminCameraTestScreen() {
               <div className="bg-gray-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4">Last Capture</h2>
                 <div className="rounded-lg overflow-hidden border border-gray-700 mb-2">
-                  <img src={`file://${lastCapture}`} alt="Last capture" className="w-full h-auto" />
+                  <img src={pathToFileUrl(lastCapture)} alt="Last capture" className="w-full h-auto" />
                 </div>
                 <p className="text-sm text-gray-400 break-all">{lastCapture}</p>
               </div>

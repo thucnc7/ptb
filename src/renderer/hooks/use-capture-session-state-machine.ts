@@ -8,6 +8,7 @@ import type { Frame } from '../../shared/types/frame-types'
 import type { CapturedPhoto } from '../../shared/types/session-types'
 import type { CountdownConfig } from '../../shared/types/countdown-types'
 import { createInitialSession, sessionReducer } from '../../shared/types/session-types'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 
 const PHOTO_PREVIEW_DURATION_MS = 1500
 const INTER_PHOTO_PAUSE_MS = 2000
@@ -104,7 +105,7 @@ export function useCaptureSessionStateMachine() {
       id: `photo-${Date.now()}`,
       index: session.currentPhotoIndex,
       path: filePath,
-      previewUrl: previewUrl || `file://${filePath}`,
+      previewUrl: previewUrl || pathToFileUrl(filePath),
       capturedAt: new Date()
     }
 

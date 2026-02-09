@@ -2,6 +2,7 @@ import { app } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import type { CameraInfo, CameraStatus, CaptureResult } from '../../shared/types/camera-types'
+import { pathToFileUrl } from '../../shared/utils/file-url-helper'
 import { DccInstallerService } from './dcc-installer-service'
 import { getDccProcessMonitor } from './dcc-process-monitor-service'
 import { getDccFileWatcher } from './dcc-capture-file-watcher-service'
@@ -259,7 +260,7 @@ export class CameraService {
         return {
           success: true,
           filePath,
-          previewUrl: `file://${filePath}`,
+          previewUrl: pathToFileUrl(filePath),
           timestamp: Date.now()
         }
 
@@ -339,7 +340,7 @@ export class CameraService {
         return {
           success: true,
           filePath: newestFile.path,
-          previewUrl: `file://${newestFile.path}`,
+          previewUrl: pathToFileUrl(newestFile.path),
           timestamp: newestFile.time
         }
       }
