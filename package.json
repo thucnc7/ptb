@@ -70,12 +70,19 @@
     },
     "files": [
       "out/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
     ],
+    "includeSubNodeModules": false,
     "extraResources": [
       {
         "from": "src/main/assets/service_account.json",
         "to": "service_account.json"
+      },
+      {
+        "from": "resources/sharp-win32-x64",
+        "to": "app.asar.unpacked/node_modules/@img/sharp-win32-x64"
       }
     ],
     "asarUnpack": [
@@ -99,6 +106,7 @@
     "node": ">=18.0.0"
   },
   "optionalDependencies": {
+    "@img/sharp-libvips-win32-x64": "^1.2.4",
     "@img/sharp-win32-x64": "^0.34.5"
   }
 }
