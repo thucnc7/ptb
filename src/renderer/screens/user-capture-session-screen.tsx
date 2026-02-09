@@ -15,6 +15,7 @@ import { DccLiveView } from '../components/dcc-live-view'
 import { WebcamLiveView, type WebcamLiveViewRef } from '../components/webcam-live-view'
 import { CountdownOverlayFullscreen, CaptureFlashEffect } from '../components/countdown-overlay-fullscreen'
 import { PhotoSelectionPanel } from '../components/photo-selection-panel'
+import { useVideoRecorder } from '../hooks/use-video-recorder'
 
 export function UserCaptureSessionScreen() {
   const { frameId } = useParams<{ frameId: string }>()
@@ -45,6 +46,8 @@ export function UserCaptureSessionScreen() {
 
   const { connect, capture, cameraMode, webcamCapture } = useCameraConnection()
   const webcamRef = useRef<WebcamLiveViewRef>(null)
+  const { startRecording, stopRecording, isRecording, videoPath } = useVideoRecorder(sessionId)
+  const recordingStartedRef = useRef(false)
   const {
     playCountdownTick,
     playShutterSound,
@@ -129,6 +132,24 @@ export function UserCaptureSessionScreen() {
     }
   }, [session.state, dccAvailable])
 
+  // Start video recording on first countdown (webcam mode only)
+  useEffect(() => {
+    if (session.state === 'countdown' && !recordingStartedRef.current && cameraMode === 'webcam') {
+      const stream = webcamRef.current?.getStream()
+      if (stream) {
+        startRecording(stream)
+        recordingStartedRef.current = true
+      }
+    }
+  }, [session.state, cameraMode, startRecording])
+
+  // Stop video recording when entering photo-selection
+  useEffect(() => {
+    if (session.state === 'photo-selection' && isRecording) {
+      stopRecording()
+    }
+  }, [session.state, isRecording, stopRecording])
+
   // Play countdown tick sound
   useEffect(() => {
     if (session.state === 'countdown' && session.countdownValue > 0) {
@@ -204,10 +225,11 @@ export function UserCaptureSessionScreen() {
         sessionId,
         frameId: frame?.id,
         frame,
-        selectedPhotoIndices
+        selectedPhotoIndices,
+        videoPath
       }
     })
-  }, [confirmPhotos, navigate, frame, sessionId])
+  }, [confirmPhotos, navigate, frame, sessionId, videoPath])
 
   const handleCancel = useCallback(() => {
     resetSession()

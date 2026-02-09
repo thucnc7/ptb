@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Download } from 'lucide-react'
+import { Video } from 'lucide-react'
 import { CompositeImageDisplay } from '../components/user-result-composite-image-display'
 import { QRSection } from '../components/user-result-qr-section'
 import { ResultActionButtons } from '../components/user-result-action-buttons'
@@ -17,12 +17,13 @@ interface LocationState {
   sessionId: string
   compositePath?: string
   downloadUrl?: string
+  videoPath?: string
 }
 
 export function UserResultScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { sessionId, downloadUrl } = (location.state as LocationState) || {}
+  const { sessionId, downloadUrl, videoPath } = (location.state as LocationState) || {}
 
   const [compositeDataUrl, setCompositeDataUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -160,28 +161,27 @@ export function UserResultScreen() {
         />
       </div>
 
-      {/* Download button */}
-      <div className="relative z-10 flex justify-center mt-8">
-        <button
-          onClick={handleOpenFolder}
-          className="group relative cursor-pointer"
-        >
-          {/* Glow effect */}
-          <div className="absolute -inset-1 rounded-3xl blur-lg bg-gradient-to-r from-purple-500 to-pink-500 opacity-50 group-hover:opacity-70 transition-opacity" />
-
-          {/* Button content */}
-          <div
-            className="relative flex items-center gap-3 px-10 py-5 rounded-2xl font-bold text-xl shadow-2xl transition-all duration-300 bg-gradient-to-r from-purple-500 to-pink-500 text-white group-hover:scale-105"
-            style={{
-              fontFamily: 'var(--font-heading)',
-              boxShadow: '0 20px 60px rgba(139, 92, 246, 0.4)'
-            }}
+      {/* Video button (only when video was recorded) */}
+      {videoPath && (
+        <div className="relative z-10 flex justify-center mt-8">
+          <button
+            onClick={handleOpenFolder}
+            className="group relative cursor-pointer"
           >
-            <Download className="w-7 h-7" />
-            <span>Tải ảnh về</span>
-          </div>
-        </button>
-      </div>
+            <div className="absolute -inset-1 rounded-3xl blur-lg bg-gradient-to-r from-cyan-500 to-blue-500 opacity-50 group-hover:opacity-70 transition-opacity" />
+            <div
+              className="relative flex items-center gap-3 px-10 py-5 rounded-2xl font-bold text-xl shadow-2xl transition-all duration-300 bg-gradient-to-r from-cyan-500 to-blue-500 text-white group-hover:scale-105"
+              style={{
+                fontFamily: 'var(--font-heading)',
+                boxShadow: '0 20px 60px rgba(6, 182, 212, 0.4)'
+              }}
+            >
+              <Video className="w-7 h-7" />
+              <span>Xem Video</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Action buttons */}
       <ResultActionButtons

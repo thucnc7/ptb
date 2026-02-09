@@ -10,7 +10,7 @@ import { ProcessingScreen } from '../components/processing-screen'
 export function UserProcessingScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { sessionId, frameId, frame, selectedPhotoIndices } = location.state || {}
+  const { sessionId, frameId, frame, selectedPhotoIndices, videoPath } = location.state || {}
 
   useEffect(() => {
     if (!sessionId || !frameId || !frame) {
@@ -46,7 +46,8 @@ export function UserProcessingScreen() {
           state: {
             sessionId,
             compositePath: result.path,
-            downloadUrl: driveSlot?.downloadLink || ''
+            downloadUrl: driveSlot?.downloadLink || '',
+            videoPath: videoPath || null
           }
         })
       } catch (err) {

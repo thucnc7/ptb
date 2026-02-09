@@ -90,11 +90,11 @@ class CloudinarySlotService {
     })
   }
 
-  /** Generate deterministic Cloudinary URL for a slot */
+  /** Generate download page URL for a slot (opens landing page with image) */
   private getSlotUrl(index: number): string {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dqkwjkcnq'
+    const baseUrl = process.env.DOWNLOAD_PAGE_URL || 'https://thucnc7.github.io/ptb/download/'
     const publicId = `ptb/slot-${String(index).padStart(3, '0')}`
-    return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}.jpg`
+    return `${baseUrl}#${publicId}`
   }
 
   /** Create a single slot with placeholder image on Cloudinary */

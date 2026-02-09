@@ -11,6 +11,7 @@ import { registerCameraIpcHandlers } from './ipc-handlers/camera-ipc-handlers'
 import { registerSessionIpcHandlers } from './ipc-handlers/session-ipc-handlers'
 import { registerSettingsIpcHandlers } from './ipc-handlers/settings-ipc-handlers'
 import { registerDriveIpcHandlers } from './ipc-handlers/drive-ipc-handlers'
+import { registerVideoIpcHandlers } from './ipc-handlers/video-ipc-handlers'
 import { getDccProcessMonitor } from './services/dcc-process-monitor-service'
 import { getDccFileWatcher } from './services/dcc-capture-file-watcher-service'
 import { getDccHttpClient } from './services/dcc-http-client-service'
@@ -89,6 +90,7 @@ app.whenReady().then(() => {
   registerSessionIpcHandlers()
   registerSettingsIpcHandlers()
   registerDriveIpcHandlers()
+  registerVideoIpcHandlers()
 
   // DCC services
   console.log('Starting DCC process monitor...')

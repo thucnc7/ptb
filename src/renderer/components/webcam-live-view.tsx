@@ -16,6 +16,7 @@ import type { WebcamDevice } from '../../shared/types/camera-types'
 
 export interface WebcamLiveViewRef {
   captureFrame: () => Promise<string> // returns data URL
+  getStream: () => MediaStream | null // access stream for video recording
 }
 
 interface WebcamLiveViewProps {
@@ -106,8 +107,9 @@ export const WebcamLiveView = forwardRef<WebcamLiveViewRef, WebcamLiveViewProps>
       [stopStream, onDevicesLoaded, onError]
     )
 
-    // Expose captureFrame to parent
+    // Expose captureFrame and getStream to parent
     useImperativeHandle(ref, () => ({
+      getStream: (): MediaStream | null => streamRef.current,
       captureFrame: async (): Promise<string> => {
         const video = videoRef.current
         if (!video || !video.videoWidth) {

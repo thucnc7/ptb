@@ -81,6 +81,12 @@ export interface ElectronAPI {
     setExtraPhotos: (count: number) => Promise<{ success: boolean }>
   }
 
+  // Video recording
+  video: {
+    save: (sessionId: string, data: number[]) => Promise<{ success: boolean; path: string }>
+    getPath: (sessionId: string) => Promise<string | null>
+  }
+
   // Google Drive slot management (Phase 6)
   drive: {
     initPool: () => Promise<{ total: number; available: number; claimed: number; uploaded: number }>
@@ -174,6 +180,11 @@ const electronAPI: ElectronAPI = {
   settings: {
     getExtraPhotos: () => ipcRenderer.invoke('settings:get-extra-photos'),
     setExtraPhotos: (count) => ipcRenderer.invoke('settings:set-extra-photos', count)
+  },
+
+  video: {
+    save: (sessionId, data) => ipcRenderer.invoke('video:save', sessionId, data),
+    getPath: (sessionId) => ipcRenderer.invoke('video:get-path', sessionId)
   },
 
   drive: {
