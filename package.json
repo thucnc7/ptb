@@ -79,7 +79,8 @@
       }
     ],
     "asarUnpack": [
-      "node_modules/sharp/**/*"
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
     ],
     "win": {
       "target": [
@@ -94,5 +95,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "optionalDependencies": {
+    "@img/sharp-win32-x64": "^0.34.5"
   }
 }
