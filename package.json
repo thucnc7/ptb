@@ -1,6 +1,6 @@
 {
   "name": "photobooth",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Windows Desktop Photobooth với Canon camera, Google Drive upload, và QR code download",
   "main": "./out/main/index.js",
   "scripts": {
