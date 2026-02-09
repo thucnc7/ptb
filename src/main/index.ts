@@ -1,5 +1,9 @@
 
 
+// Prevent EPIPE crash when stdout/stderr pipe is closed in production (no terminal)
+process.stdout?.on?.('error', () => {})
+process.stderr?.on?.('error', () => {})
+
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerFrameIpcHandlers } from './ipc-handlers/frame-ipc-handlers'
